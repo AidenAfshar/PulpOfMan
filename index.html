@@ -42,11 +42,11 @@
 <script>
   const SOURCE = {
     // ── Google Drive (the main source) ──
-    drive:  "https://script.google.com/macros/s/AKfycbwZeC4OKO0vxDNocmHoFR3tr9lVAfFyGpR5cBOsGBS9wwTQJa3HFTksq4bwAYtseaDW/exec",                       // your Apps Script Web app URL, ending in /exec
+    drive:  "https://script.google.com/macros/s/AKfycbyGoFX46KmaCV951vjBySHz7fSpJ3nzTl2K2ubbi7AmDgv7wevHyXEap8x7aKUXT245/exec",                       // your Apps Script Web app URL, ending in /exec
 
     // ── GitHub folder (fallback; leave as-is if you aren't using it) ──
     user:   "YOUR-GITHUB-USERNAME",
-    repo:   "a-pulp-of-man",
+    repo:   "a-pulp-of-man",  
     branch: "main",
     dir:    "entries"
   };
@@ -306,12 +306,18 @@ function driveUrls(id){
            `https://drive.google.com/uc?export=view&id=${id}` ];
 }
 
-function makeEntry(name, urls, kind, id){
+function makeEntry(name, urls, kind, id, resourceKey){
   const d = dateFrom(name);
-  return { name, urls, id,
-           kind: kind || (/\.pdf$/i.test(name) ? "pdf" : "image"),
-           key: d && d.key, label: d ? d.label : "",
-           today: !!d && d.key === todayKey };
+  return {
+    name,
+    urls,
+    id,
+    resourceKey,
+    kind: kind || (/\.pdf$/i.test(name) ? "pdf" : "image"),
+    key: d && d.key,
+    label: d ? d.label : "",
+    today: !!d && d.key === todayKey
+  };
 }
 
 async function fromDrive(){
@@ -322,7 +328,7 @@ async function fromDrive(){
   if(j && j.ok === false) throw new Error(j.error || "relay error");
   return (j.entries || [])
     .filter(f => f && f.name && (f.id || f.url))
-    .map(f => makeEntry(f.name, f.url ? [f.url] : driveUrls(f.id), f.kind, f.id));
+    .map(f => makeEntry(f.name,f.url ? [f.url] : driveUrls(f.id),f.kind,f.id,f.resourceKey));
 }
 
 async function fromGitHub(){
@@ -465,7 +471,15 @@ async function pdfBytes(entry){
   if(entry.id && SOURCE.drive){
     // Drive won't hand raw bytes to a browser, so the relay passes them through
     const sep = SOURCE.drive.indexOf('?') === -1 ? '?' : '&';
-    const r = await fetch(SOURCE.drive + sep + "file=" + encodeURIComponent(entry.id));
+    let url =
+    SOURCE.drive +
+    sep +
+    "file=" +
+    encodeURIComponent(entry.id);
+    if (entry.resourceKey) {
+    url += "&key=" + encodeURIComponent(entry.resourceKey);
+    }
+    const r = await fetch(url);
     if(!r.ok) throw new Error("relay " + r.status);
     const j = await r.json();
     if(!j.ok) throw new Error(j.error || "relay error");
