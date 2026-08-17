@@ -5,8 +5,27 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>A Pulp Of Man</title>
 <meta name="theme-color" content="#131210">
-<meta name="description" content="A Pulp Of Man">
+<meta name="description" content="A shelf of scrolls, written by hand.">
+
+<!-- the site's own address; used for sharing cards and the canonical link -->
+<link rel="canonical" href="https://pulpofman.com/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="A Pulp Of Man">
+<meta property="og:title" content="A Pulp Of Man">
+<meta property="og:description" content="A shelf of scrolls, written by hand.">
+<meta property="og:url" content="https://pulpofman.com/">
+<meta property="og:image" content="https://pulpofman.com/assets/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://pulpofman.com/assets/og.jpg">
+
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23191816'/%3E%3Crect x='12' y='5' width='8' height='23' rx='1' fill='%23ded2b4'/%3E%3Cellipse cx='16' cy='6' rx='4.6' ry='1.9' fill='%23b6a988'/%3E%3C/svg%3E">
+<link rel="apple-touch-icon" href="assets/icon-180.png">
+<link rel="manifest" href="site.webmanifest">
+<meta name="apple-mobile-web-app-title" content="Pulp Of Man">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="preload" as="image" href="assets/wall.jpg">
 <link rel="preload" as="image" href="assets/shelf.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -15,16 +34,21 @@
 
 <!-- ═══════════════════════════════════════════════════════════════════
      A PULP OF MAN
-     Entries are photographs of handwriting dropped into the /entries
-     folder of the GitHub repo, named   YYYY-MM-DD-anything.jpg
-     Fill in the four lines below once, then never open this file again.
+     Entries are photographs of handwriting, named  YYYY-MM-DD-anything.jpg
+     and dropped into a Google Drive folder. Paste the address of your
+     Apps Script relay below (see tools/drive-relay.gs) and you are done.
+     The GitHub lines are a fallback, used only if Drive can't be reached.
      ═══════════════════════════════════════════════════════════════ -->
 <script>
   const SOURCE = {
-    user:   "YOUR-GITHUB-USERNAME",   // your GitHub username
-    repo:   "a-pulp-of-man",          // the repository name
-    branch: "main",                   // usually "main"
-    dir:    "entries"                 // the folder the photographs live in
+    // ── Google Drive (the main source) ──
+    drive:  "",                       // your Apps Script Web app URL, ending in /exec
+
+    // ── GitHub folder (fallback; leave as-is if you aren't using it) ──
+    user:   "YOUR-GITHUB-USERNAME",
+    repo:   "a-pulp-of-man",
+    branch: "main",
+    dir:    "entries"
   };
 </script>
 
@@ -253,8 +277,7 @@ const FEATHER = `
 </svg>`;
 
 /* ── entries ──────────────────────────────────────────────── */
-const IMG_RE  = /\.(jpe?g|png|webp|gif|avif|heic)$/i;
-const DATE_RE = /(\d{4})-(\d{2})-(\d{2})/;
+const IMG_RE  = /\.(jpe?g|png|webp|gif|avif|heic|heif)$/i;
 const MONTHS  = ["January","February","March","April","May","June",
                  "July","August","September","October","November","December"];
 const VARIANTS = 8;
@@ -262,40 +285,72 @@ const VARIANTS = 8;
 const todayKey = (()=>{ const d=new Date();
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })();
 
-function parseEntry(name, url){
-  const m = name.match(DATE_RE);
-  const key = m ? `${m[1]}-${m[2]}-${m[3]}` : null;
-  return { name, url, key,
-           label: m ? `${+m[3]} ${MONTHS[+m[2]-1]} ${m[1]}` : "",
-           today: key === todayKey };
+/* The date comes from the filename and nowhere else. Anchored at the start,
+   so a stray number later in the name can never be mistaken for one; a date
+   further in still counts, so "scan 2026-08-17.jpg" works too. */
+function dateFrom(name){
+  const m = name.match(/^(\d{4})-(\d{2})-(\d{2})/) || name.match(/(\d{4})-(\d{2})-(\d{2})/);
+  if(!m) return null;
+  const y=+m[1], mo=+m[2], d=+m[3];
+  if(mo<1 || mo>12 || d<1 || d>31) return null;
+  return { key:`${m[1]}-${m[2]}-${m[3]}`, label:`${d} ${MONTHS[mo-1]} ${y}` };
 }
 
-async function loadEntries(){
+/* Google serves the same picture from several addresses and quietly changes
+   which one it prefers, so keep a chain and let the browser fall down it. */
+function driveUrls(id){
+  return [ `https://lh3.googleusercontent.com/d/${id}=w1600`,
+           `https://drive.google.com/thumbnail?id=${id}&sz=w1600`,
+           `https://drive.google.com/uc?export=view&id=${id}` ];
+}
+
+function makeEntry(name, urls){
+  const d = dateFrom(name);
+  return { name, urls, key: d && d.key, label: d ? d.label : "",
+           today: !!d && d.key === todayKey };
+}
+
+async function fromDrive(){
+  if(!SOURCE.drive) return [];
+  const r = await fetch(SOURCE.drive, {cache:"no-store"});
+  if(!r.ok) throw new Error("relay " + r.status);
+  const j = await r.json();
+  if(j && j.ok === false) throw new Error(j.error || "relay error");
+  return (j.entries || [])
+    .filter(f => f && f.name && (f.id || f.url))
+    .map(f => makeEntry(f.name, f.url ? [f.url] : driveUrls(f.id)));
+}
+
+async function fromGitHub(){
   const {user, repo, branch, dir} = SOURCE;
-  if(!/^YOUR-/.test(user)){
+  if(!user || /^YOUR-/.test(user)) return [];
+  const r = await fetch(`https://api.github.com/repos/${user}/${repo}/contents/${dir}?ref=${branch}`,
+                        {headers:{Accept:"application/vnd.github+json"}});
+  if(!r.ok) throw new Error("github " + r.status);
+  const j = await r.json();
+  if(!Array.isArray(j)) throw new Error("github: unexpected reply");
+  return j.filter(f => f.type === "file" && IMG_RE.test(f.name))
+          .map(f => makeEntry(f.name, [f.download_url]));
+}
+
+async function fromManifest(){
+  const r = await fetch("entries.json", {cache:"no-store"});
+  if(!r.ok) throw new Error("manifest " + r.status);
+  const j = await r.json();
+  const dir = SOURCE.dir || "entries";
+  return (Array.isArray(j) ? j : j.entries || []).map(x => typeof x === "string"
+    ? makeEntry(x.split("/").pop(), [x.includes("/") ? x : `${dir}/${x}`])
+    : makeEntry(x.name || x.file || "", [x.url || `${dir}/${x.file || x.name}`]));
+}
+
+/* Drive first; the others only if Drive is unset or unreachable. */
+async function loadEntries(){
+  for(const src of [fromDrive, fromGitHub, fromManifest]){
     try{
-      const r = await fetch(`https://api.github.com/repos/${user}/${repo}/contents/${dir}?ref=${branch}`,
-                            {headers:{Accept:"application/vnd.github+json"}});
-      if(r.ok){
-        const j = await r.json();
-        if(Array.isArray(j)){
-          const list = j.filter(f=>f.type==="file" && IMG_RE.test(f.name))
-                        .map(f=>parseEntry(f.name, f.download_url));
-          if(list.length) return list;
-        }
-      }
-    }catch(e){}
+      const list = await src();
+      if(list.length) return list;
+    }catch(e){ console.warn("[pulp]", src.name, "→", e.message); }
   }
-  try{
-    const r = await fetch("entries.json", {cache:"no-store"});
-    if(r.ok){
-      const j = await r.json();
-      return (Array.isArray(j) ? j : j.entries || []).map(x =>
-        typeof x === "string"
-          ? parseEntry(x.split("/").pop(), x.includes("/") ? x : `${dir}/${x}`)
-          : parseEntry(x.name || x.file || "", x.url || `${dir}/${x.file || x.name}`));
-    }
-  }catch(e){}
   return [];
 }
 
@@ -303,7 +358,9 @@ async function loadEntries(){
 const shelves = document.getElementById('shelves');
 
 function render(entries){
-  entries.sort((a,b)=> (b.key||"").localeCompare(a.key||"") || a.name.localeCompare(b.name));
+  // newest first; anything whose filename carries no date goes to the very end
+  entries.sort((a,b)=>
+    (b.key||"").localeCompare(a.key||"") || a.name.localeCompare(b.name, undefined, {numeric:true}));
   const rnd = mulberry32(90210);
   shelves.innerHTML = "";
   entries.forEach((e, i)=>{
@@ -380,7 +437,6 @@ function openScroll(entry, el){
   openEl.style.width = r.width + 'px';
   sheet.style.height = '0px';
   sheet.scrollTop = 0;
-  openImg.src = entry.url;
   openImg.alt = entry.label || entry.name;
   stage.classList.add('on');
   stage.setAttribute('aria-hidden','false');
@@ -400,8 +456,16 @@ function openScroll(entry, el){
       busy = false;
     }, 560);
   };
-  if(openImg.complete && openImg.naturalWidth) go();
-  else { openImg.onload = go; openImg.onerror = go; }
+  // walk the address chain until one of them actually yields a picture
+  let idx = 0;
+  const done = ()=>{ openImg.onload = openImg.onerror = null; go(); };
+  openImg.onload  = done;
+  openImg.onerror = ()=>{
+    if(++idx < entry.urls.length) openImg.src = entry.urls[idx];
+    else { console.warn("[pulp] no address served", entry.name); done(); }
+  };
+  if(openImg.getAttribute('src') === entry.urls[0] && openImg.complete && openImg.naturalWidth) done();
+  else openImg.src = entry.urls[0];
 }
 
 function closeScroll(){
