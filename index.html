@@ -42,7 +42,7 @@
 <script>
   const SOURCE = {
     // ── Google Drive (the main source) ──
-    drive:  "",                       // your Apps Script Web app URL, ending in /exec
+    drive:  "https://script.google.com/macros/s/AKfycbwZeC4OKO0vxDNocmHoFR3tr9lVAfFyGpR5cBOsGBS9wwTQJa3HFTksq4bwAYtseaDW/exec",                       // your Apps Script Web app URL, ending in /exec
 
     // ── GitHub folder (fallback; leave as-is if you aren't using it) ──
     user:   "YOUR-GITHUB-USERNAME",
@@ -212,8 +212,10 @@ main{ flex:1 0 auto; padding-bottom:clamp(24px,9vh,110px); }
   content:""; position:absolute; inset:0; pointer-events:none;
   background:linear-gradient(to bottom, rgba(64,52,32,.30), rgba(64,52,32,0) 30px);
 }
-#open .sheet img{ display:block; width:100%; height:auto; cursor:zoom-in; transition:width .45s ease; }
-#open.zoomed .sheet img{ width:215%; max-width:none; cursor:zoom-out; }
+#open .stack{ width:100%; cursor:zoom-in; transition:width .45s ease; }
+#open.zoomed .stack{ width:215%; max-width:none; cursor:zoom-out; }
+#open .stack img, #open .stack canvas{ display:block; width:100%; height:auto; }
+#open .stack canvas + canvas{ border-top:1px solid rgba(96,82,54,.20); }  /* fold between pages */
 
 @media (prefers-reduced-motion: reduce){
   #open.flying, #open .sheet, .scroll, .feather{ transition-duration:.001s !important; animation:none !important; }
@@ -233,7 +235,7 @@ main{ flex:1 0 auto; padding-bottom:clamp(24px,9vh,110px); }
   <div id="scrim"></div>
   <figure id="open">
     <div class="rod top"></div>
-    <div class="sheet"><img alt=""></div>
+    <div class="sheet"><div class="stack"></div></div>
     <div class="rod bottom"></div>
   </figure>
 </div>
@@ -277,7 +279,7 @@ const FEATHER = `
 </svg>`;
 
 /* ── entries ──────────────────────────────────────────────── */
-const IMG_RE  = /\.(jpe?g|png|webp|gif|avif|heic|heif)$/i;
+const FILE_RE = /\.(jpe?g|png|webp|gif|avif|heic|heif|pdf)$/i;
 const MONTHS  = ["January","February","March","April","May","June",
                  "July","August","September","October","November","December"];
 const VARIANTS = 8;
@@ -304,9 +306,11 @@ function driveUrls(id){
            `https://drive.google.com/uc?export=view&id=${id}` ];
 }
 
-function makeEntry(name, urls){
+function makeEntry(name, urls, kind, id){
   const d = dateFrom(name);
-  return { name, urls, key: d && d.key, label: d ? d.label : "",
+  return { name, urls, id,
+           kind: kind || (/\.pdf$/i.test(name) ? "pdf" : "image"),
+           key: d && d.key, label: d ? d.label : "",
            today: !!d && d.key === todayKey };
 }
 
@@ -318,7 +322,7 @@ async function fromDrive(){
   if(j && j.ok === false) throw new Error(j.error || "relay error");
   return (j.entries || [])
     .filter(f => f && f.name && (f.id || f.url))
-    .map(f => makeEntry(f.name, f.url ? [f.url] : driveUrls(f.id)));
+    .map(f => makeEntry(f.name, f.url ? [f.url] : driveUrls(f.id), f.kind, f.id));
 }
 
 async function fromGitHub(){
@@ -329,7 +333,7 @@ async function fromGitHub(){
   if(!r.ok) throw new Error("github " + r.status);
   const j = await r.json();
   if(!Array.isArray(j)) throw new Error("github: unexpected reply");
-  return j.filter(f => f.type === "file" && IMG_RE.test(f.name))
+  return j.filter(f => f.type === "file" && FILE_RE.test(f.name))
           .map(f => makeEntry(f.name, [f.download_url]));
 }
 
@@ -418,15 +422,99 @@ addEventListener('resize', schedulePlanks);
 if(window.ResizeObserver) new ResizeObserver(schedulePlanks).observe(shelves);
 
 /* ── open / unroll ────────────────────────────────────────── */
-const stage   = document.getElementById('stage');
-const openEl  = document.getElementById('open');
-const sheet   = openEl.querySelector('.sheet');
-const openImg = openEl.querySelector('img');
-let current = null, busy = false;
+const stage  = document.getElementById('stage');
+const openEl = document.getElementById('open');
+const sheet  = openEl.querySelector('.sheet');
+const stack  = openEl.querySelector('.stack');
+let current = null, busy = false, gen = 0;   // gen: which open is the live one
+
+/* ── a photograph: try each of Google's addresses in turn ──── */
+function loadImage(urls){
+  return new Promise((resolve, reject)=>{
+    let i = 0;
+    const im = new Image();
+    im.decoding = "async";
+    im.onload  = ()=> resolve(im);
+    im.onerror = ()=> (++i < urls.length) ? im.src = urls[i]
+                                          : reject(new Error("no address served"));
+    im.src = urls[0];
+  });
+}
+
+/* ── a PDF: pdf.js, loaded only the first time one is opened ── */
+let pdfLib = null;
+function ensurePdfLib(){
+  if(pdfLib) return Promise.resolve(pdfLib);
+  return new Promise((resolve, reject)=>{
+    const s = document.createElement('script');
+    s.src = "assets/pdfjs/pdf.min.js";
+    s.onload = ()=>{
+      pdfLib = window.pdfjsLib;
+      pdfLib.GlobalWorkerOptions.workerSrc = "assets/pdfjs/pdf.worker.min.js";
+      resolve(pdfLib);
+    };
+    s.onerror = ()=> reject(new Error("pdf.js would not load"));
+    document.head.appendChild(s);
+  });
+}
+
+const pdfCache = new Map();
+async function pdfBytes(entry){
+  if(pdfCache.has(entry.name)) return pdfCache.get(entry.name);
+  let bytes;
+  if(entry.id && SOURCE.drive){
+    // Drive won't hand raw bytes to a browser, so the relay passes them through
+    const sep = SOURCE.drive.indexOf('?') === -1 ? '?' : '&';
+    const r = await fetch(SOURCE.drive + sep + "file=" + encodeURIComponent(entry.id));
+    if(!r.ok) throw new Error("relay " + r.status);
+    const j = await r.json();
+    if(!j.ok) throw new Error(j.error || "relay error");
+    const bin = atob(j.b64);
+    bytes = new Uint8Array(bin.length);
+    for(let i=0;i<bin.length;i++) bytes[i] = bin.charCodeAt(i);
+  }else{
+    const r = await fetch(entry.urls[0]);
+    if(!r.ok) throw new Error("pdf " + r.status);
+    bytes = new Uint8Array(await r.arrayBuffer());
+  }
+  pdfCache.set(entry.name, bytes);
+  return bytes;
+}
+
+async function drawPdf(entry, W, mine){
+  const [lib, data] = await Promise.all([ensurePdfLib(), pdfBytes(entry)]);
+  const doc = await lib.getDocument({data: data.slice()}).promise;
+  const dpr = Math.min(devicePixelRatio || 1, 2);
+  let ratio = 0;
+  for(let n = 1; n <= doc.numPages; n++){
+    if(mine !== gen) return ratio;        // a different scroll was opened; stop
+    const page = await doc.getPage(n);
+    const scale = (W * dpr) / page.getViewport({scale:1}).width;
+    const vp = page.getViewport({scale});
+    const cv = document.createElement('canvas');
+    cv.width = Math.round(vp.width); cv.height = Math.round(vp.height);
+    stack.appendChild(cv);
+    await page.render({canvasContext: cv.getContext('2d'), viewport: vp}).promise;
+    ratio += vp.height / vp.width;          // pages stack, so heights add up
+  }
+  return ratio;
+}
+
+/* fill the sheet, and report how tall it wants to be per unit of width */
+async function buildContent(entry, W, mine){
+  stack.textContent = "";
+  if(entry.kind === "pdf") return await drawPdf(entry, W, mine);
+  const im = await loadImage(entry.urls);
+  if(mine !== gen) return 1.4;
+  stack.appendChild(im);
+  im.alt = entry.label || entry.name;
+  return (im.naturalHeight || 1400) / (im.naturalWidth || 1000);
+}
 
 function openScroll(entry, el){
   if(busy || current) return;
   busy = true; current = el;
+  const mine = ++gen;
   const r  = el.getBoundingClientRect();
   const vw = innerWidth, vh = innerHeight;
   const W  = Math.min(560, vw * 0.86);
@@ -437,35 +525,33 @@ function openScroll(entry, el){
   openEl.style.width = r.width + 'px';
   sheet.style.height = '0px';
   sheet.scrollTop = 0;
-  openImg.alt = entry.label || entry.name;
   stage.classList.add('on');
   stage.setAttribute('aria-hidden','false');
 
-  const go = ()=>{
-    const ratio = (openImg.naturalHeight||1400) / (openImg.naturalWidth||1000);
+  // lift off straight away — a multi-page PDF takes a moment, and the scroll
+  // shouldn't sit on the shelf looking broken while it's fetched
+  void openEl.offsetWidth;
+  openEl.classList.add('flying');
+  openEl.style.left  = Math.round((vw - W)/2) + 'px';
+  openEl.style.top   = Math.round(Math.max(26, (vh - (W*1.4 + 56))/2)) + 'px';
+  openEl.style.width = W + 'px';
+  el.classList.add('hidden');
+
+  // let it be closed again as soon as it has risen, even if a long PDF is
+  // still drawing — nobody should be trapped waiting for a scan
+  const risen = new Promise(res => setTimeout(()=>{ busy = false; res(); }, 560));
+  const ready = buildContent(entry, W, mine).catch(err=>{
+    console.warn("[pulp]", entry.name, "→", err.message);
+    return 1.4;                                    // unroll anyway, blank
+  });
+
+  Promise.all([risen, ready]).then(([, ratio])=>{
+    if(mine !== gen || current !== el) return;     // closed while we waited
     const H = Math.min(W * ratio, vh - 160);
-    void openEl.offsetWidth;
-    openEl.classList.add('flying');
-    openEl.style.left  = Math.round((vw - W)/2) + 'px';
-    openEl.style.top   = Math.round(Math.max(26, (vh - (H + 56))/2)) + 'px';
-    openEl.style.width = W + 'px';
-    el.classList.add('hidden');
-    setTimeout(()=>{
-      openEl.classList.add('unrolled');
-      sheet.style.height = Math.round(H) + 'px';
-      busy = false;
-    }, 560);
-  };
-  // walk the address chain until one of them actually yields a picture
-  let idx = 0;
-  const done = ()=>{ openImg.onload = openImg.onerror = null; go(); };
-  openImg.onload  = done;
-  openImg.onerror = ()=>{
-    if(++idx < entry.urls.length) openImg.src = entry.urls[idx];
-    else { console.warn("[pulp] no address served", entry.name); done(); }
-  };
-  if(openImg.getAttribute('src') === entry.urls[0] && openImg.complete && openImg.naturalWidth) done();
-  else openImg.src = entry.urls[0];
+    openEl.style.top = Math.round(Math.max(26, (vh - (H + 56))/2)) + 'px';
+    openEl.classList.add('unrolled');
+    sheet.style.height = Math.round(H) + 'px';
+  });
 }
 
 function closeScroll(){

@@ -4,8 +4,9 @@ A shelf of scrolls at **pulpofman.com**. Each scroll is one handwritten page. Ta
 and it lifts off the shelf and unrolls. Anything dated today wears a small blue
 feather.
 
-Entries live in a **Google Drive folder**. Publishing is: photograph the page, put it
-in the folder, name it with the date. No CMS, no build step, no database.
+Entries live in a **Google Drive folder**. Publishing is: photograph or scan the page,
+put it in the folder, name it with the date. Photographs and PDFs both work — a
+multi-page PDF unrolls into one long scroll. No CMS, no build step, no database.
 
 ---
 
@@ -129,12 +130,27 @@ seconds, and browsers cache a little beyond that.
 ### The one rule
 
 **The filename must carry `YYYY-MM-DD`.** That's the date inked down the scroll, and
-it's what sorts the shelf — newest at the top left. A photo dated today grows the
-feather on its own.
+it's what sorts the shelf — newest at the top left. An entry dated today grows the
+feather on its own. This holds for PDFs exactly as for photographs.
 
 A file with no date, or a nonsense one like `2026-13-99`, still appears — bare, at the
 very end of the shelf. Nothing ever disappears silently; if you see an unlabelled
 scroll, that's a filename asking to be fixed.
+
+### PDFs
+
+Drop a PDF in and it behaves like everything else — same naming rule, same place on
+the shelf. **Every page is drawn**, stacked end to end, so a four-page entry becomes a
+genuinely long scroll you keep pulling down. There's a faint fold where one page meets
+the next.
+
+Two things to know. The relay hands the file to the browser, so keep scans **under
+12 MB** — the script refuses anything larger and says so in the console. And a PDF
+takes a moment longer to open than a photograph, because the pages are drawn one at a
+time; the scroll lifts off the shelf immediately and unrolls when they're ready.
+
+The sample dated **12 August** in `entries/` is a three-page PDF. If that one opens
+and scrolls, PDFs are working.
 
 ### HEIC
 
@@ -143,7 +159,7 @@ iPhone photos generally work with no conversion — which they didn't in the Git
 version. If a page ever refuses to appear, that's the first thing to suspect.
 
 Around 1–2 MB per photo is plenty. The scroll shows the page about 560 pixels wide and
-lets you tap to zoom.
+lets you tap to zoom — which works on PDF pages too.
 
 ---
 
@@ -170,6 +186,9 @@ Console). Anything the site couldn't do is logged there, prefixed `[pulp]`.
 | Scrolls appear but pages are blank when opened | The folder isn't shared **Anyone with the link → Viewer**. |
 | Console says `no address served` | Same cause — Google refused the image. Check sharing. |
 | A scroll has no date on it | Its filename has no `YYYY-MM-DD`. Rename it in Drive. |
+| A PDF opens blank, console says `Too large` | Over the 12 MB ceiling. Rescan at a lower resolution, or raise `MAX_PDF_MB` in the relay and redeploy. |
+| A PDF opens blank, console says `Not in the folder` | The file was moved out of the folder the relay watches. |
+| PDFs hang but photos are fine | `assets/pdfjs/` didn't get uploaded. It's 1.5 MB and easy to miss when dragging files in. |
 
 ### The fallbacks
 
@@ -179,7 +198,8 @@ they're a safety net, not content. Delete `entries/`, `entries.json` and the Git
 lines in `SOURCE` once Drive is working, or leave them as a spare tyre.
 
 Nothing is tracked. No cookies, no analytics, no third-party scripts beyond the two
-fonts.
+fonts — the PDF renderer is Mozilla's pdf.js, kept in `assets/pdfjs/` rather than
+pulled from a CDN, and only fetched the first time you open a PDF.
 
 ---
 
@@ -220,6 +240,7 @@ tools/drive-relay.gs  paste this into script.google.com — the Drive half
 CNAME                 pulpofman.com — this is what claims the domain
 site.webmanifest      name and icons for Add to Home Screen
 assets/               rendered wall, shelf, scrolls, rolls, paper, icons, share card
+assets/pdfjs/         Mozilla's pdf.js, for drawing PDF pages (Apache 2.0)
 entries/              fallback samples, only used if Drive is unreachable
 entries.json          last-ditch fallback listing
 tools/                the Python that renders assets/ and the sample pages
