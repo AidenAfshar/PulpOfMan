@@ -1,1 +1,438 @@
-peepeepoopoo
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>A Pulp Of Man</title>
+<meta name="theme-color" content="#131210">
+<meta name="description" content="A Pulp Of Man">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23191816'/%3E%3Crect x='12' y='5' width='8' height='23' rx='1' fill='%23ded2b4'/%3E%3Cellipse cx='16' cy='6' rx='4.6' ry='1.9' fill='%23b6a988'/%3E%3C/svg%3E">
+<link rel="preload" as="image" href="assets/wall.jpg">
+<link rel="preload" as="image" href="assets/shelf.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400&family=Caveat:wght@400;500&display=swap" rel="stylesheet">
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     A PULP OF MAN
+     Entries are photographs of handwriting dropped into the /entries
+     folder of the GitHub repo, named   YYYY-MM-DD-anything.jpg
+     Fill in the four lines below once, then never open this file again.
+     ═══════════════════════════════════════════════════════════════ -->
+<script>
+  const SOURCE = {
+    user:   "YOUR-GITHUB-USERNAME",   // your GitHub username
+    repo:   "a-pulp-of-man",          // the repository name
+    branch: "main",                   // usually "main"
+    dir:    "entries"                 // the folder the photographs live in
+  };
+</script>
+
+<style>
+:root{
+  --rowH: 278px;      /* one shelf's worth of vertical space          */
+  --base: 60px;       /* space under a scroll's foot: slab + shadow   */
+  --sink: 15px;       /* how far onto the slab's top surface it sits  */
+  --shelfH: 94px;     /* rendered height of shelf.png in css pixels   */
+  --ink: #2b3350;
+}
+
+*{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+html,body{ height:100%; }
+body{
+  margin:0; min-height:100vh;
+  display:flex; flex-direction:column;
+  color:#cdc4ad;
+  font-family:"Cormorant Garamond", Georgia, serif;
+  background:#131210;
+  overflow-x:hidden;
+  opacity:0; transition:opacity 1s ease;
+}
+body.ready{ opacity:1; }
+
+/* ── the wall ─────────────────────────────────────────────── */
+#wall{
+  position:fixed; inset:0; z-index:-3;
+  background:#131210 url(assets/wall.jpg) repeat center top;
+  background-size:640px 640px;
+}
+#lamp{
+  position:fixed; inset:0; z-index:-2; pointer-events:none;
+  background:
+    radial-gradient(120% 74% at 50% -14%, rgba(255,240,208,.20) 0%, rgba(255,238,205,.05) 40%, rgba(0,0,0,0) 70%),
+    radial-gradient(112% 92% at 50% 34%, rgba(0,0,0,0) 24%, rgba(0,0,0,.55) 74%, rgba(0,0,0,.86) 100%),
+    linear-gradient(to bottom, rgba(0,0,0,0) 34%, rgba(0,0,0,.60) 100%);
+}
+#grain{
+  position:fixed; inset:0; z-index:9; pointer-events:none;
+  opacity:.20; mix-blend-mode:overlay; background-repeat:repeat;
+}
+
+/* ── the title, painted on the stone ──────────────────────── */
+header{ text-align:center; padding:clamp(32px,7vh,72px) 16px clamp(24px,5vh,44px); user-select:none; }
+h1{
+  margin:0; font-weight:300;
+  font-size:clamp(22px, 4.8vw, 35px);
+  letter-spacing:.32em; text-indent:.32em; text-transform:uppercase;
+  color:rgba(226,210,176,.56);
+  text-shadow:0 1px 0 rgba(0,0,0,.9), 0 2px 7px rgba(0,0,0,.7), 0 0 28px rgba(226,205,160,.10);
+}
+
+/* ── shelves ──────────────────────────────────────────────── */
+main{ flex:1 0 auto; padding-bottom:clamp(24px,9vh,110px); }
+#shelves{
+  position:relative;
+  display:flex; flex-wrap:wrap; align-items:flex-end;
+  padding:0 clamp(22px, 7vw, 130px);
+}
+.plank{
+  position:absolute; z-index:0; pointer-events:none;
+  left:calc(50% - 50vw); width:100vw; height:var(--shelfH);
+  background:url(assets/shelf.png) repeat-x left top;
+  background-size:1024px var(--shelfH);
+}
+.slot{
+  position:relative; z-index:1;
+  height:var(--rowH);
+  display:flex; align-items:flex-end;
+  padding-bottom:var(--base);
+  cursor:pointer;
+}
+.slot:focus{ outline:none; }
+
+.scroll{
+  position:relative;
+  height:var(--h);
+  transform-origin:50% 100%;
+  transform:rotate(var(--tilt));
+  transition:transform .45s cubic-bezier(.2,.9,.25,1), filter .45s ease;
+  will-change:transform;
+}
+.scroll img{ display:block; height:100%; width:auto; }
+.slot:hover .scroll, .slot:focus-visible .scroll{
+  transform:translateY(-10px) rotate(var(--tilt));
+  filter:brightness(1.10);
+}
+.scroll.hidden{ visibility:hidden; }
+
+.scroll .shadow{               /* what it throws onto the slab */
+  position:absolute; z-index:-1;
+  left:-46%; right:-30%; bottom:1px; height:15px;
+  background:radial-gradient(46% 50% at 56% 50%, rgba(0,0,0,.78) 0%, rgba(0,0,0,.32) 48%, rgba(0,0,0,0) 78%);
+  filter:blur(2.5px);
+}
+.scroll .date{                 /* inked down the length of the roll */
+  position:absolute; left:50%; top:52%;
+  transform:translate(-50%,-50%) rotate(-90deg);
+  font-family:"Caveat","Segoe Script",cursive;
+  font-size:16px; line-height:1; white-space:nowrap;
+  color:var(--ink); opacity:.72;
+  text-shadow:0 .5px 0 rgba(255,255,255,.28);
+  pointer-events:none;
+}
+
+/* ── the blue feather: today's entries only ───────────────── */
+.slot.has-feather{ z-index:4; }
+.feather{
+  position:absolute; left:100%; top:-2px;
+  width:44px; height:116px; margin-left:-16px;
+  transform-origin:50% 3px;
+  animation:sway 7.5s ease-in-out infinite;
+  pointer-events:none;
+  filter:drop-shadow(-2px 5px 5px rgba(0,0,0,.6));
+}
+@keyframes sway{ 0%,100%{transform:rotate(7deg)} 50%{transform:rotate(-8deg)} }
+
+/* ── the opened scroll ────────────────────────────────────── */
+#stage{ position:fixed; inset:0; z-index:20; pointer-events:none; }
+#stage.on{ pointer-events:auto; }
+#scrim{
+  position:absolute; inset:0; opacity:0; transition:opacity .6s ease;
+  background:radial-gradient(120% 90% at 50% 28%, rgba(8,7,6,.60) 0%, rgba(5,4,4,.92) 100%);
+  backdrop-filter:blur(3px);
+}
+#stage.on #scrim{ opacity:1; }
+
+#open{
+  position:absolute; margin:0;
+  display:flex; flex-direction:column; align-items:center;
+  opacity:0; filter:drop-shadow(0 26px 42px rgba(0,0,0,.8));
+}
+#stage.on #open{ opacity:1; }
+#open.flying{ transition:left .62s cubic-bezier(.22,.85,.24,1), top .62s cubic-bezier(.22,.85,.24,1), width .62s cubic-bezier(.22,.85,.24,1); }
+
+#open .rod{
+  position:relative; flex:0 0 auto; width:100%; height:23px; z-index:2;
+  background:url(assets/rod-body.png) repeat-x left center;
+  background-size:auto 100%;
+  filter:drop-shadow(0 3px 7px rgba(0,0,0,.5));
+}
+#open .rod::before, #open .rod::after{
+  content:""; position:absolute; top:0; width:9px; height:100%;
+  background:url(assets/rod-end.png) no-repeat center/100% 100%;
+}
+#open .rod::before{ left:-9px; transform:scaleX(-1); }
+#open .rod::after { right:-9px; }
+#open .rod.bottom{ filter:brightness(.9) drop-shadow(0 4px 9px rgba(0,0,0,.55)); }
+
+#open .sheet{
+  width:100%; height:0; overflow:hidden; position:relative; z-index:1;
+  background:#e9e1cb url(assets/paper.jpg) repeat;
+  background-size:220px;
+  box-shadow:inset 7px 0 16px -9px rgba(70,58,36,.8), inset -7px 0 16px -9px rgba(70,58,36,.8);
+  transition:height .95s cubic-bezier(.24,.86,.22,1);
+}
+#open.unrolled .sheet{ overflow:auto; scrollbar-width:none; -ms-overflow-style:none; }
+#open .sheet::-webkit-scrollbar{ display:none; }
+#open .sheet::after{             /* the curl still held by the top roll */
+  content:""; position:absolute; inset:0; pointer-events:none;
+  background:linear-gradient(to bottom, rgba(64,52,32,.30), rgba(64,52,32,0) 30px);
+}
+#open .sheet img{ display:block; width:100%; height:auto; cursor:zoom-in; transition:width .45s ease; }
+#open.zoomed .sheet img{ width:215%; max-width:none; cursor:zoom-out; }
+
+@media (prefers-reduced-motion: reduce){
+  #open.flying, #open .sheet, .scroll, .feather{ transition-duration:.001s !important; animation:none !important; }
+}
+</style>
+</head>
+
+<body>
+<div id="wall"></div>
+<div id="lamp"></div>
+<div id="grain"></div>
+
+<header><h1>A Pulp Of Man</h1></header>
+<main><div id="shelves"></div></main>
+
+<div id="stage" aria-hidden="true">
+  <div id="scrim"></div>
+  <figure id="open">
+    <div class="rod top"></div>
+    <div class="sheet"><img alt=""></div>
+    <div class="rod bottom"></div>
+  </figure>
+</div>
+
+<script>
+/* ── a little film grain over everything ──────────────────── */
+(function(){
+  const s=112, cv=document.createElement('canvas'); cv.width=cv.height=s;
+  const ctx=cv.getContext('2d'), im=ctx.createImageData(s,s), D=im.data;
+  let a=1337;
+  const rnd=()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};
+  for(let i=0;i<s*s;i++){ const v=rnd(); D[i*4]=128; D[i*4+1]=126; D[i*4+2]=120; D[i*4+3]=v<.5?0:(v-.5)*80; }
+  ctx.putImageData(im,0,0);
+  document.getElementById('grain').style.backgroundImage=`url(${cv.toDataURL()})`;
+})();
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+
+/* ── the feather ──────────────────────────────────────────── */
+const FEATHER = `
+<svg class="feather" viewBox="0 0 38 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <defs><linearGradient id="fv" x1=".1" y1="0" x2=".95" y2=".85">
+    <stop offset="0" stop-color="#8cc2ea"/><stop offset=".30" stop-color="#5b95cd"/>
+    <stop offset=".68" stop-color="#33639b"/><stop offset="1" stop-color="#1a3f6d"/>
+  </linearGradient></defs>
+  <path d="M19 2 C 18.4 9, 19.6 16, 19 24" stroke="#7d745f" stroke-width="1.05" fill="none" opacity=".9"/>
+  <circle cx="19" cy="2.2" r="1.9" fill="#8a7f68" stroke="#241f19" stroke-width=".6"/>
+  <path d="M19 25 C 10.5 37, 7.6 55, 12.6 73 C 14.4 79, 17.2 84, 19 86.5
+           C 20.8 84, 23.6 79, 25.4 73 C 30.4 55, 27.5 37, 19 25 Z" fill="url(#fv)"/>
+  <g stroke="#102a4a" stroke-width=".5" opacity=".34" fill="none">
+    <path d="M19 33 C 15 36, 12.6 39.5, 11.6 43"/><path d="M19 41 C 14.4 44.6, 11.4 49, 10.2 53.5"/>
+    <path d="M19 50 C 14.2 54, 11.4 58.6, 10.6 63.5"/><path d="M19 59 C 14.6 63, 12.2 67.6, 11.8 72"/>
+    <path d="M19 68 C 15.4 71.6, 13.6 75.4, 13.6 79"/>
+    <path d="M19 33 C 23 36, 25.4 39.5, 26.4 43"/><path d="M19 41 C 23.6 44.6, 26.6 49, 27.8 53.5"/>
+    <path d="M19 50 C 23.8 54, 26.6 58.6, 27.4 63.5"/><path d="M19 59 C 23.4 63, 25.8 67.6, 26.2 72"/>
+    <path d="M19 68 C 22.6 71.6, 24.4 75.4, 24.4 79"/>
+  </g>
+  <path d="M13.4 62 C 10.4 65.6, 8.8 68.6, 8.2 71.4" stroke="#4a7cb2" stroke-width=".8" fill="none" opacity=".8"/>
+  <path d="M25 46 C 28.4 49.4, 30.2 52.6, 30.8 55.6" stroke="#2f628f" stroke-width=".8" fill="none" opacity=".8"/>
+  <path d="M19 26 L19 86" stroke="#e4eff9" stroke-width="1" opacity=".5" fill="none"/>
+  <path d="M19 84 C 18.4 89, 17.6 92.5, 16.4 95.5" stroke="#9fb6cc" stroke-width="1.1" fill="none" opacity=".75" stroke-linecap="round"/>
+</svg>`;
+
+/* ── entries ──────────────────────────────────────────────── */
+const IMG_RE  = /\.(jpe?g|png|webp|gif|avif|heic)$/i;
+const DATE_RE = /(\d{4})-(\d{2})-(\d{2})/;
+const MONTHS  = ["January","February","March","April","May","June",
+                 "July","August","September","October","November","December"];
+const VARIANTS = 8;
+
+const todayKey = (()=>{ const d=new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })();
+
+function parseEntry(name, url){
+  const m = name.match(DATE_RE);
+  const key = m ? `${m[1]}-${m[2]}-${m[3]}` : null;
+  return { name, url, key,
+           label: m ? `${+m[3]} ${MONTHS[+m[2]-1]} ${m[1]}` : "",
+           today: key === todayKey };
+}
+
+async function loadEntries(){
+  const {user, repo, branch, dir} = SOURCE;
+  if(!/^YOUR-/.test(user)){
+    try{
+      const r = await fetch(`https://api.github.com/repos/${user}/${repo}/contents/${dir}?ref=${branch}`,
+                            {headers:{Accept:"application/vnd.github+json"}});
+      if(r.ok){
+        const j = await r.json();
+        if(Array.isArray(j)){
+          const list = j.filter(f=>f.type==="file" && IMG_RE.test(f.name))
+                        .map(f=>parseEntry(f.name, f.download_url));
+          if(list.length) return list;
+        }
+      }
+    }catch(e){}
+  }
+  try{
+    const r = await fetch("entries.json", {cache:"no-store"});
+    if(r.ok){
+      const j = await r.json();
+      return (Array.isArray(j) ? j : j.entries || []).map(x =>
+        typeof x === "string"
+          ? parseEntry(x.split("/").pop(), x.includes("/") ? x : `${dir}/${x}`)
+          : parseEntry(x.name || x.file || "", x.url || `${dir}/${x.file || x.name}`));
+    }
+  }catch(e){}
+  return [];
+}
+
+/* ── build the shelf ──────────────────────────────────────── */
+const shelves = document.getElementById('shelves');
+
+function render(entries){
+  entries.sort((a,b)=> (b.key||"").localeCompare(a.key||"") || a.name.localeCompare(b.name));
+  const rnd = mulberry32(90210);
+  shelves.innerHTML = "";
+  entries.forEach((e, i)=>{
+    const slot = document.createElement('div');
+    slot.className = 'slot' + (e.today ? ' has-feather' : '');
+    slot.style.margin = `0 ${Math.round(7+rnd()*9)}px`;
+    slot.tabIndex = 0;
+    slot.setAttribute('role','button');
+    slot.setAttribute('aria-label', e.label || e.name);
+
+    const s = document.createElement('div');
+    s.className = 'scroll';
+    s.style.setProperty('--h', Math.round(166 + rnd()*52) + 'px');
+    s.style.setProperty('--tilt', ((rnd()-0.5)*2.4).toFixed(2) + 'deg');
+    s.style.filter = `brightness(${(0.93+rnd()*0.14).toFixed(3)})`;
+    s.innerHTML =
+      '<div class="shadow"></div>' +
+      `<img src="assets/scroll-${Math.floor(rnd()*VARIANTS)}.png" alt="" draggable="false">` +
+      (e.label ? `<div class="date">${e.label}</div>` : '') +
+      (e.today ? FEATHER : '');
+
+    // a scroll's width is only known once its image decodes — re-lay the slabs then
+    s.querySelector('img').addEventListener('load', schedulePlanks);
+
+    slot.appendChild(s);
+    slot.addEventListener('click', ()=>openScroll(e, s));
+    slot.addEventListener('keydown', ev=>{
+      if(ev.key==='Enter'||ev.key===' '){ ev.preventDefault(); openScroll(e, s); }
+    });
+    shelves.appendChild(slot);
+  });
+  drawPlanks();
+}
+
+/* one stone slab under each wrapped row, wherever the row happens to land */
+function drawPlanks(){
+  shelves.querySelectorAll('.plank').forEach(p=>p.remove());
+  const css = getComputedStyle(document.documentElement);
+  const rowH = parseFloat(css.getPropertyValue('--rowH'));
+  const base = parseFloat(css.getPropertyValue('--base'));
+  const sink = parseFloat(css.getPropertyValue('--sink'));
+  const tops = new Set();
+  shelves.querySelectorAll('.slot').forEach(el => tops.add(el.offsetTop));
+  if(!tops.size) tops.add(0);                    // an empty shelf is still a shelf
+  [...tops].sort((a,b)=>a-b).forEach(t=>{
+    const p = document.createElement('div');
+    p.className = 'plank';
+    p.style.top = (t + rowH - base - sink) + 'px';
+    shelves.appendChild(p);
+  });
+}
+let plankTimer = 0;
+function schedulePlanks(){ clearTimeout(plankTimer); plankTimer = setTimeout(drawPlanks, 40); }
+addEventListener('resize', schedulePlanks);
+if(window.ResizeObserver) new ResizeObserver(schedulePlanks).observe(shelves);
+
+/* ── open / unroll ────────────────────────────────────────── */
+const stage   = document.getElementById('stage');
+const openEl  = document.getElementById('open');
+const sheet   = openEl.querySelector('.sheet');
+const openImg = openEl.querySelector('img');
+let current = null, busy = false;
+
+function openScroll(entry, el){
+  if(busy || current) return;
+  busy = true; current = el;
+  const r  = el.getBoundingClientRect();
+  const vw = innerWidth, vh = innerHeight;
+  const W  = Math.min(560, vw * 0.86);
+
+  openEl.classList.remove('flying','unrolled','zoomed');
+  openEl.style.left  = r.left + 'px';
+  openEl.style.top   = r.top  + 'px';
+  openEl.style.width = r.width + 'px';
+  sheet.style.height = '0px';
+  sheet.scrollTop = 0;
+  openImg.src = entry.url;
+  openImg.alt = entry.label || entry.name;
+  stage.classList.add('on');
+  stage.setAttribute('aria-hidden','false');
+
+  const go = ()=>{
+    const ratio = (openImg.naturalHeight||1400) / (openImg.naturalWidth||1000);
+    const H = Math.min(W * ratio, vh - 160);
+    void openEl.offsetWidth;
+    openEl.classList.add('flying');
+    openEl.style.left  = Math.round((vw - W)/2) + 'px';
+    openEl.style.top   = Math.round(Math.max(26, (vh - (H + 56))/2)) + 'px';
+    openEl.style.width = W + 'px';
+    el.classList.add('hidden');
+    setTimeout(()=>{
+      openEl.classList.add('unrolled');
+      sheet.style.height = Math.round(H) + 'px';
+      busy = false;
+    }, 560);
+  };
+  if(openImg.complete && openImg.naturalWidth) go();
+  else { openImg.onload = go; openImg.onerror = go; }
+}
+
+function closeScroll(){
+  if(busy || !current) return;
+  busy = true;
+  const el = current;
+  openEl.classList.remove('unrolled','zoomed');
+  sheet.style.height = '0px';
+  setTimeout(()=>{
+    const r = el.getBoundingClientRect();
+    openEl.style.left  = r.left + 'px';
+    openEl.style.top   = r.top  + 'px';
+    openEl.style.width = r.width + 'px';
+    stage.classList.remove('on');
+    stage.setAttribute('aria-hidden','true');
+    setTimeout(()=>{ el.classList.remove('hidden'); current=null; busy=false; }, 480);
+  }, 620);
+}
+
+document.getElementById('scrim').addEventListener('click', closeScroll);
+openEl.querySelectorAll('.rod').forEach(r=>r.addEventListener('click', closeScroll));
+sheet.addEventListener('click', ()=>{ if(!busy) openEl.classList.toggle('zoomed'); });
+addEventListener('keydown', e=>{ if(e.key==='Escape') closeScroll(); });
+addEventListener('resize', ()=>{ if(current) closeScroll(); });
+
+/* ── go ───────────────────────────────────────────────────── */
+loadEntries().then(list=>{
+  render(list);
+  requestAnimationFrame(()=>{ drawPlanks(); document.body.classList.add('ready'); });
+  addEventListener('load', drawPlanks);
+});
+</script>
+</body>
+</html>
