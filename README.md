@@ -90,8 +90,9 @@ instead of silently overwritten. Visitors and browsers without the saved token n
 see the editing controls.
 
 The latest Git commit timestamp appears as **Last edited** at the bottom of that scroll.
-Transcript URLs include GitHub's revision SHA, so browser and raw-file caches cannot
-resurrect an older version after reloading or opening the site on another device.
+GitHub-backed transcripts are read from the immutable Git blob for their exact file
+SHA, so raw-file caches cannot resurrect an older version after reloading or opening
+the site on another device.
 
 ### Reading the handwriting
 
