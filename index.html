@@ -1008,7 +1008,8 @@ document.getElementById('gForget').addEventListener('click', ()=>{
    every reader afterwards is just fetching a text file — no key, no
    cost, no waiting. Your key never leaves this browser.
    ══════════════════════════════════════════════════════════════ */
-const GEM_KEY = "pulp.gem", GEM_MODEL = "pulp.gemmodel";
+const GEM_KEY = "pulp.gem", GEM_MODEL = "pulp.gemmodel.v2";
+const HAND_SAMPLE = "pulp.hand.sample.v1";
 let gemKey = null;
 try{ gemKey = localStorage.getItem(GEM_KEY) || null; }catch(e){}
 
@@ -1040,8 +1041,8 @@ async function geminiModels(){
   if(!usable.length) throw new Error("that key has no usable model on it");
 
   const score = n =>
-      (/flash/i.test(n) ? 100 : 0)
-    + (/pro/i.test(n)   ?  60 : 0)
+      (/pro/i.test(n)   ? 140 : 0)              // accuracy matters more than latency here
+    + (/flash/i.test(n) ?  80 : 0)
     - (/lite|preview|exp|thinking|latest/i.test(n) ? 25 : 0)
     + (parseFloat((n.match(/(\d+\.\d+)/) || [0, "0"])[1]) || 0) * 10;
   usable.sort((a, b) => score(b) - score(a));
@@ -1064,7 +1065,9 @@ const MAX_READ_PAGES = 15;
 
 /* Turn whatever was chosen into page-sized canvases. */
 async function pageCanvases(file, note){
-  const LONG = 1800;
+  // Handwriting recognition benefits greatly from preserving small pen strokes.
+  // 2600px is still modest enough for phones and multi-page API requests.
+  const LONG = 2600;
   const out = [];
 
   if(file.type === "application/pdf" || /\.pdf$/i.test(file.name)){
@@ -1098,7 +1101,34 @@ async function pageCanvases(file, note){
   return {pages: [cv], total: 1, read: 1};
 }
 
-const asJpeg = cv => cv.toDataURL("image/jpeg", 0.86).split(",")[1];
+const asJpeg = (cv, quality = 0.94) => cv.toDataURL("image/jpeg", quality).split(",")[1];
+
+function handwritingSample(){
+  try{
+    const sample = JSON.parse(localStorage.getItem(HAND_SAMPLE) || "null");
+    return sample && sample.image && sample.text ? sample : null;
+  }catch(e){ return null; }
+}
+
+/* Keep one corrected page as a few-shot example. This is deliberately small and
+   local: it teaches the reader recurring letter shapes without uploading a journal
+   archive or relying on a server-side profile. */
+function rememberHandwritingSample(page, text){
+  if(!page || !text.trim()) return;
+  const limit = 1200;
+  const scale = Math.min(1, limit / Math.max(page.width, page.height));
+  const cv = document.createElement('canvas');
+  cv.width = Math.max(1, Math.round(page.width * scale));
+  cv.height = Math.max(1, Math.round(page.height * scale));
+  const ctx = cv.getContext('2d');
+  ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, cv.width, cv.height);
+  ctx.drawImage(page, 0, 0, cv.width, cv.height);
+  try{
+    localStorage.setItem(HAND_SAMPLE, JSON.stringify({
+      image: asJpeg(cv, 0.78), text: text.trim().slice(0, 12000)
+    }));
+  }catch(e){ console.warn("[pulp] could not remember handwriting sample", e); }
+}
 
 /* ── ENGINE ONE: on this device, no key, nothing to be overloaded ─────────
    Tesseract is not clever about cursive, so give it the cleanest possible
@@ -1183,8 +1213,14 @@ async function readHere(pages, note){
 
 /* ── ENGINE TWO: Gemini, when it is willing ───────────────────────────── */
 async function callGemini(model, shots){
-  const parts = [{text: READ_PROMPT}].concat(
-    shots.map(b64 => ({inline_data: {mime_type: "image/jpeg", data: b64}})));
+  const parts = [{text: READ_PROMPT}];
+  const sample = handwritingSample();
+  if(sample){
+    parts.push({text: "Here is one previously corrected example of this same writer's handwriting. Use it only to learn recurring letter shapes and word spacing; do not include its words in the new transcription."});
+    parts.push({inline_data: {mime_type: "image/jpeg", data: sample.image}});
+    parts.push({text: "Correct transcription of the example:\n" + sample.text + "\n\nNow transcribe only the new page(s) below:"});
+  }
+  parts.push(...shots.map(b64 => ({inline_data: {mime_type: "image/jpeg", data: b64}})));
   const r = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=`
       + encodeURIComponent(gemKey),
@@ -1231,6 +1267,7 @@ async function readAtGoogle(pages, note){
 /* ── the read button, and reading whatever was just chosen ── */
 const fileBox = document.getElementById('gFile');
 const textBox = document.getElementById('gText');
+let lastReadPages = [];
 
 async function readChosenPage(){
   const file = fileBox.files[0];
@@ -1241,6 +1278,7 @@ async function readChosenPage(){
   note("Preparing the page…");
   try{
     const {pages, total, read} = await pageCanvases(file, note);
+    lastReadPages = pages;
     const short = read < total ? ` Only the first ${read} of ${total} pages.` : "";
 
     let words = "", how = "";
@@ -1320,10 +1358,11 @@ document.getElementById('gPost').addEventListener('click', async ()=>{
     if(words){
       say('sayPost', "Sending the words…");
       await putFile(path + ".txt", textToBase64(words));   // same name, plus .txt
+      if(lastReadPages.length === 1) rememberHandwritingSample(lastReadPages[0], words);
     }
 
     say('sayPost', words ? "On the shelf, in your own words." : "On the shelf.");
-    fileBox.value = ""; textBox.value = "";
+    fileBox.value = ""; textBox.value = ""; lastReadPages = [];
     document.getElementById('gNote').value = "";
     setTimeout(async ()=>{ closeGate(); render(await loadEntries()); }, 1000);
   }catch(err){

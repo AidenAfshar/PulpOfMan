@@ -83,7 +83,11 @@ overwrites anything.
 
 Two engines, tried in that order, so a busy server can never stop you publishing.
 
-**1. Google, if you've given it a key.** The best reader by a distance. When it comes
+**1. Google, if you've given it a key.** The best reader by a distance. The reader
+prefers the more accurate Pro models, preserves more detail from the page, and learns
+from the last single-page transcript you corrected and published. That one reference
+page and its correction stay in this browser and are sent with the next page only as
+an example of your letter shapes. When Google comes
 back *overloaded* — which it does, often — the site now waits and tries again, and
 switches to a different model each time rather than hammering the same busy one. Four
 attempts across about ten seconds.
