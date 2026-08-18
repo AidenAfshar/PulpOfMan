@@ -15,13 +15,9 @@ To publish, you don't go anywhere: **tap the title five times** and a door opens
 ## The hidden door
 
 Tap **A PULP OF MAN** five times quickly. A panel appears on parchment. The first time,
-it asks for a GitHub token and a password of your choosing; after that, just the
-password. Then you pick a file, confirm the date, and hit Publish. The scroll appears
-on the shelf a moment later.
-
-The password is whatever you type at setup — `thoughtsiwontforget`, if you like. It is
-deliberately *not* written into this file: anything in `index.html` is published to the
-world, so a password living there would protect nothing.
+it asks for your GitHub token. After that it goes **straight to the form** — no
+password, ever again on that browser. Pick a file, confirm the date, hit Publish. The
+scroll appears on the shelf a moment later.
 
 Nothing about this is visible to anyone else. The public site has no menu, no login
 link, no hint that the panel exists — five taps on a title is not something a visitor
@@ -29,21 +25,24 @@ does by accident.
 
 ### How the key is kept
 
-Your token is **encrypted with your password and stored only in that browser**
-(AES-GCM, key stretched from the password with 250,000 rounds of PBKDF2). It is never
-written into `index.html`, so nothing secret is ever published — anyone can read every
-byte of this repo and find no way in.
+Your token is **kept in that browser's storage and nowhere else**. It is never written
+into `index.html`, so nothing secret is published — anyone can read every byte of this
+repo and find no way in.
 
-The practical consequences:
+Since there's no password, the honest position is this: **whoever is using that browser
+can post.** That's the trade you asked for, and it's a reasonable one, because the token
+is scoped to `PulpOfMan` with only Contents access. The worst anyone could do with it is
+add or remove entries on this one blog. It cannot touch your other repositories or your
+account.
 
-- Each device you want to post from needs setting up once. Phone and laptop each get
-  their own copy.
-- Clearing your browser data forgets it. Set it up again; nothing is lost.
-- Someone who steals your unlocked phone could post to your blog. Nothing worse — the
-  token below is scoped to this one repository.
-- It needs **https**. On `pulpofman.com` that's automatic. Opening `index.html` by
-  double-clicking it on your Mac will not work, because browsers withhold the crypto
-  API from `file://` pages.
+So: set it up on your own devices only. If you lend a laptop, or a phone goes missing,
+open the panel and tap **forget this device** — or revoke the token on GitHub, which
+kills it everywhere at once.
+
+Two smaller things:
+
+- Each device needs setting up once. Phone and laptop each get their own copy.
+- Clearing your browser data forgets it. Set it up again; nothing on the shelf is lost.
 
 ### Making the token
 
@@ -56,7 +55,8 @@ The practical consequences:
 4. **Permissions** → *Repository permissions* → **Contents** → **Read and write**.
    That is the only one. Leave everything else alone.
 5. Generate, and copy the token. GitHub shows it exactly once.
-6. On the site, tap the title five times, paste it in, choose a password, save.
+6. On the site, tap the title five times, paste it in, save. That's the last time
+   you'll be asked for anything.
 
 A fine-grained token scoped this way can do precisely one thing: read and write files
 in `PulpOfMan`. It cannot touch your other repositories, your account, or anything
@@ -66,7 +66,7 @@ else.
 
 ## Publishing
 
-Tap the title five times → password → then:
+Tap the title five times, and then:
 
 | field | what it does |
 |---|---|
@@ -110,11 +110,15 @@ unlabelled scroll is a filename asking to be fixed.
 
 ## Reading it
 
-- **Tap a scroll** — it lifts off the shelf and unrolls.
-- **Tap the page** — zooms in, for handwriting that's gone small.
-- **Tap the dark surround, either roll, or press Esc** — it rolls back up.
+- **Tap a scroll** — it lifts off the shelf and unrolls. It opens large enough to read
+  without doing anything else.
+- **Tap anywhere** — steps closer: normal → half again → two and a bit, then back to
+  normal. It zooms around the spot you tapped, so you can walk across a page by
+  tapping the bit you want. When you're in close, the page pans in both directions.
+- **The X in the top right, or Esc** — closes it. Only those two. Tapping the dark
+  surround does nothing, so you can't lose your place by mis-aiming.
 
-Nothing else on screen.
+Nothing else on screen, and nothing at all until you open a scroll.
 
 ---
 
@@ -151,8 +155,8 @@ Anything that failed is logged there, prefixed `[pulp]`.
 |---|---|
 | Shelf empty, console says `fromGitHub → github 404` | Wrong `user`/`repo`/`branch` in `SOURCE` at the top of `index.html`, or there's no `entries/` folder yet. |
 | Shelf empty, console says `github 403` | You've made more than 60 anonymous requests in an hour from this network. Unlock the panel — once you do, the site uses your token and the ceiling rises to 5,000. |
-| Five taps do nothing | You're on `file://` or plain `http`. The panel needs https. |
-| Forgot the password | Tap *forget this device* on the password screen, then set it up again with a fresh token. Nothing on the shelf is lost. |
+| Five taps do nothing | Try again a little faster — all five need to land inside two and a half seconds. |
+| It asks for the token again | The browser's storage was cleared, or you're in a private window. Paste it in again. |
 | Publish says `Resource not accessible` | The token lacks **Contents: Read and write**, or wasn't scoped to `PulpOfMan`. |
 | Publish says `Bad credentials` | The token expired or was pasted with a stray space. Tap *forget this device* and set it up again. |
 | Scrolls appear but pages are blank | The repo is private. Make it public. |
@@ -196,11 +200,10 @@ Layout knobs are in the `:root` block at the top of `index.html`:
 | `--sink` | how far onto the slab's top surface the scrolls stand |
 | `--ink` | the colour of the date written on each roll |
 
-And one in the script, just above `drawPlanks`:
-
-| constant | what it does |
-|---|---|
-| `EMPTY_SHELVES` | how many bare shelves hang below the last entry, waiting. Three by default; the page also always draws enough to reach the bottom of the window, and scrolls once they overflow. |
+There are exactly as many shelves as it takes to hold the scrolls — one more appears
+when a row fills up. Two more knobs sit in the script: `ZOOMS` near `setZoom` sets the
+magnification steps, and the `Math.min(760, vw * 0.92)` in `openScroll` sets how large
+a scroll opens by default.
 
 ---
 

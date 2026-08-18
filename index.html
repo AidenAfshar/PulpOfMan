@@ -227,10 +227,24 @@ main{ flex:1 0 auto; padding-bottom:clamp(24px,9vh,110px); }
   content:""; position:absolute; inset:0; pointer-events:none;
   background:linear-gradient(to bottom, rgba(64,52,32,.30), rgba(64,52,32,0) 30px);
 }
-#open .stack{ width:100%; cursor:zoom-in; transition:width .45s ease; }
-#open.zoomed .stack{ width:215%; max-width:none; cursor:zoom-out; }
+#open .stack{ width:100%; max-width:none; cursor:zoom-in; transition:width .38s ease; }
+#open.far .stack{ cursor:zoom-out; }
 #open .stack img, #open .stack canvas{ display:block; width:100%; height:auto; }
 #open .stack canvas + canvas{ border-top:1px solid rgba(96,82,54,.20); }  /* fold between pages */
+
+#shut{
+  position:absolute; z-index:30;
+  top:calc(12px + env(safe-area-inset-top, 0px));
+  right:calc(12px + env(safe-area-inset-right, 0px));
+  width:46px; height:46px; padding:0;
+  border:1px solid rgba(226,210,176,.20); border-radius:50%;
+  background:rgba(18,15,12,.55); backdrop-filter:blur(6px);
+  cursor:pointer; opacity:0; pointer-events:none;
+  transition:opacity .45s ease .3s, background .2s ease, transform .2s ease;
+}
+#stage.on #shut{ opacity:1; pointer-events:auto; }
+#shut:hover{ background:rgba(30,25,20,.8); transform:scale(1.06); }
+#shut svg{ display:block; margin:auto; }
 
 /* ── the hidden door: five taps on the title ───────────────── */
 #gate{ position:fixed; inset:0; z-index:40; display:none; align-items:center; justify-content:center; padding:20px; }
@@ -288,6 +302,12 @@ h1{ cursor:default; }
 
 <div id="stage" aria-hidden="true">
   <div id="scrim"></div>
+  <button id="shut" aria-label="Close" title="Close">
+    <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+      <path d="M2 2 L16 16 M16 2 L2 16" stroke="#e6dcc2" stroke-width="1.7"
+            stroke-linecap="round" fill="none"/>
+    </svg>
+  </button>
   <figure id="open">
     <div class="rod top"></div>
     <div class="sheet"><div class="stack"></div></div>
@@ -303,24 +323,16 @@ h1{ cursor:default; }
     <div class="step" id="stepSetup">
       <h2>First, the key</h2>
       <label for="gToken">GitHub token (fine-grained, Contents: read &amp; write)</label>
-      <input id="gToken" type="password" autocomplete="off" spellcheck="false">
-      <label for="gPinNew">Choose a password for this device</label>
-      <input id="gPinNew" type="password" autocomplete="off" spellcheck="false">
+      <input id="gToken" type="password" autocomplete="off" spellcheck="false" autofocus>
       <button id="gSave">Remember on this device</button>
-      <p class="hint">The token is encrypted with your password and kept only in this
-        browser. It is never written into the site, so nothing secret is published.</p>
+      <p class="hint">Kept in this browser only, and never written into the site — the
+        published files hold no secret. Anyone using this browser can post, so set it up
+        on your own devices only.</p>
       <div class="say" id="saySetup"></div>
     </div>
 
-    <div class="step" id="stepPin">
-      <h2>Password <span class="forget" id="gForget">forget this device</span></h2>
-      <input id="gPin" type="password" autocomplete="off" spellcheck="false" autofocus>
-      <button id="gUnlock">Unlock</button>
-      <div class="say" id="sayPin"></div>
-    </div>
-
     <div class="step" id="stepPost">
-      <h2>New entry</h2>
+      <h2>New entry <span class="forget" id="gForget">forget this device</span></h2>
       <label for="gFile">The page — photograph or PDF</label>
       <input id="gFile" type="file" accept="image/*,application/pdf">
       <label for="gDate">Dated</label>
@@ -505,8 +517,6 @@ function render(entries){
 }
 
 /* one stone slab under each wrapped row, wherever the row happens to land */
-const EMPTY_SHELVES = 3;      // how many bare shelves to keep below the last entry
-
 function drawPlanks(){
   shelves.querySelectorAll('.plank').forEach(p=>p.remove());
   const css  = getComputedStyle(document.documentElement);
@@ -518,13 +528,9 @@ function drawPlanks(){
   shelves.querySelectorAll('.slot').forEach(el => { if(el.offsetTop > lastTop) lastTop = el.offsetTop; });
   const filled = Math.round(lastTop / rowH) + 1;
 
-  // carry on past the last entry: empty shelves waiting to be filled, and always
-  // enough of them to reach the bottom of the window
-  const toWindow = Math.ceil((innerHeight - shelves.getBoundingClientRect().top) / rowH);
-  const rows = Math.max(filled + EMPTY_SHELVES, toWindow, 4);
-
-  const want = (rows * rowH) + 'px';
-  if(shelves.style.minHeight !== want) shelves.style.minHeight = want;
+  // exactly as many shelves as there are scrolls to stand on them
+  const rows = Math.max(filled, 1);
+  if(shelves.style.minHeight) shelves.style.minHeight = "";
 
   for(let i = 0; i < rows; i++){
     const p = document.createElement('div');
@@ -685,14 +691,15 @@ function openScroll(entry, el){
   const mine = ++gen;
   const r  = el.getBoundingClientRect();
   const vw = innerWidth, vh = innerHeight;
-  const W  = Math.min(560, vw * 0.86);
+  const W  = Math.min(760, vw * 0.92);   // big enough to read without zooming
 
-  openEl.classList.remove('flying','unrolled','zoomed');
+  openEl.classList.remove('flying','unrolled','far');
   openEl.style.left  = r.left + 'px';
   openEl.style.top   = r.top  + 'px';
   openEl.style.width = r.width + 'px';
   sheet.style.height = '0px';
   sheet.scrollTop = 0;
+  resetZoom();
   stage.classList.add('on');
   stage.setAttribute('aria-hidden','false');
 
@@ -726,7 +733,7 @@ function closeScroll(){
   if(busy || !current) return;
   busy = true;
   const el = current;
-  openEl.classList.remove('unrolled','zoomed');
+  openEl.classList.remove('unrolled','far');
   sheet.style.height = '0px';
   setTimeout(()=>{
     const r = el.getBoundingClientRect();
@@ -739,23 +746,58 @@ function closeScroll(){
   }, 620);
 }
 
-document.getElementById('scrim').addEventListener('click', closeScroll);
-openEl.querySelectorAll('.rod').forEach(r=>r.addEventListener('click', closeScroll));
-sheet.addEventListener('click', ()=>{ if(!busy) openEl.classList.toggle('zoomed'); });
+/* ── zoom: tap the page to step closer, once more to come back ──
+   Nothing here closes the scroll — that is the X's job — so you can
+   tap about freely without losing your place.                    */
+const ZOOMS = [1, 1.6, 2.4];
+let zoomAt = 0;
+
+function setZoom(next, x, y){
+  const box = sheet.getBoundingClientRect();
+  // where is the finger, as a fraction of the whole page?
+  const fx = (sheet.scrollLeft + (x - box.left)) / Math.max(sheet.scrollWidth, 1);
+  const fy = (sheet.scrollTop  + (y - box.top )) / Math.max(sheet.scrollHeight, 1);
+
+  zoomAt = next;
+  stack.style.width = (ZOOMS[zoomAt] * 100) + "%";
+  openEl.classList.toggle('far', zoomAt === ZOOMS.length - 1);
+
+  requestAnimationFrame(()=>{        // hold that spot under the finger
+    sheet.scrollLeft = fx * sheet.scrollWidth  - (x - box.left);
+    sheet.scrollTop  = fy * sheet.scrollHeight - (y - box.top);
+  });
+}
+function resetZoom(){
+  zoomAt = 0;
+  stack.style.width = "100%";
+  openEl.classList.remove('far');
+  sheet.scrollLeft = 0;
+}
+
+stage.addEventListener('click', e=>{
+  if(busy || !current || e.target.closest('#shut')) return;
+  setZoom((zoomAt + 1) % ZOOMS.length, e.clientX, e.clientY);
+});
+document.getElementById('shut').addEventListener('click', e=>{
+  e.stopPropagation(); closeScroll();
+});
 addEventListener('keydown', e=>{ if(e.key==='Escape') closeScroll(); });
 addEventListener('resize', ()=>{ if(current) closeScroll(); });
 
 /* ══════════════════════════════════════════════════════════════
    THE HIDDEN DOOR
-   Five quick taps on the title. Your GitHub token is sealed with a
-   PIN and kept in this browser only — it is never written into the
-   site, so the published files hold no secret at all.
-   Needs https (or localhost); browsers withhold crypto elsewhere.
+   Five quick taps on the title. Your GitHub token is remembered in
+   this browser, so posting takes no password at all. Nothing about
+   it is written into the site: the published files hold no secret.
+   The flip side is that anyone using this browser can post, so keep
+   it to devices that are yours.
    ══════════════════════════════════════════════════════════════ */
 const VAULT = "pulp.key";
 
-const gate = document.getElementById('gate');
-const steps = { setup:'stepSetup', pin:'stepPin', post:'stepPost' };
+try{ token = localStorage.getItem(VAULT) || null; }catch(e){ token = null; }
+
+const gate  = document.getElementById('gate');
+const steps = { setup:'stepSetup', post:'stepPost' };
 function step(which){
   Object.entries(steps).forEach(([k,id])=>
     document.getElementById(id).classList.toggle('on', k === which));
@@ -763,30 +805,6 @@ function step(which){
 function say(id, text, bad){
   const el = document.getElementById(id);
   el.textContent = text; el.classList.toggle('bad', !!bad);
-}
-
-/* ── sealing the token with the password ── */
-const enc = new TextEncoder(), dec = new TextDecoder();
-async function pinKey(pin, salt){   // "pin" is whatever passphrase you chose
-  const base = await crypto.subtle.importKey("raw", enc.encode(pin), "PBKDF2", false, ["deriveKey"]);
-  return crypto.subtle.deriveKey(
-    {name:"PBKDF2", salt, iterations:250000, hash:"SHA-256"},
-    base, {name:"AES-GCM", length:256}, false, ["encrypt","decrypt"]);
-}
-async function seal(pin, secret){
-  const salt = crypto.getRandomValues(new Uint8Array(16));
-  const iv   = crypto.getRandomValues(new Uint8Array(12));
-  const ct = new Uint8Array(await crypto.subtle.encrypt(
-    {name:"AES-GCM", iv}, await pinKey(pin, salt), enc.encode(secret)));
-  localStorage.setItem(VAULT, JSON.stringify({s:[...salt], i:[...iv], c:[...ct]}));
-}
-async function unseal(pin){
-  const raw = localStorage.getItem(VAULT);
-  if(!raw) return null;
-  const {s,i,c} = JSON.parse(raw);
-  const pt = await crypto.subtle.decrypt({name:"AES-GCM", iv:new Uint8Array(i)},
-                await pinKey(pin, new Uint8Array(s)), new Uint8Array(c));
-  return dec.decode(pt);
 }
 
 /* ── five taps ── */
@@ -804,14 +822,13 @@ async function unseal(pin){
 function openGate(){
   gate.classList.add('on');
   gate.setAttribute('aria-hidden','false');
-  if(token) { step('post'); prefill(); }
-  else if(localStorage.getItem(VAULT)){ step('pin'); focus('gPin'); }
+  if(token){ step('post'); prefill(); }         // remembered: straight to the form
   else { step('setup'); focus('gToken'); }
 }
 function closeGate(){
   gate.classList.remove('on');
   gate.setAttribute('aria-hidden','true');
-  ['saySetup','sayPin','sayPost'].forEach(id => say(id, ""));
+  ['saySetup','sayPost'].forEach(id => say(id, ""));
 }
 function focus(id){ setTimeout(()=>document.getElementById(id).focus(), 60); }
 function prefill(){
@@ -823,34 +840,19 @@ function prefill(){
 gate.querySelector('.veil').addEventListener('click', closeGate);
 addEventListener('keydown', e=>{ if(e.key === 'Escape' && gate.classList.contains('on')) closeGate(); });
 
-document.getElementById('gSave').addEventListener('click', async ()=>{
+document.getElementById('gSave').addEventListener('click', ()=>{
   const t = document.getElementById('gToken').value.trim();
-  const p = document.getElementById('gPinNew').value;
   if(t.length < 20) return say('saySetup', "That doesn't look like a token.", true);
-  if(p.length < 8)  return say('saySetup', "Give the password at least eight characters.", true);
-  try{
-    await seal(p, t);
-    token = t;
-    document.getElementById('gToken').value = "";
-    document.getElementById('gPinNew').value = "";
-    step('post'); prefill();
-  }catch(err){ say('saySetup', String(err.message || err), true); }
+  try{ localStorage.setItem(VAULT, t); }
+  catch(err){ return say('saySetup', "This browser won't keep it — private window?", true); }
+  token = t;
+  document.getElementById('gToken').value = "";
+  step('post'); prefill();
 });
 
-document.getElementById('gUnlock').addEventListener('click', unlock);
-document.getElementById('gPin').addEventListener('keydown', e=>{ if(e.key === 'Enter') unlock(); });
-async function unlock(){
-  const p = document.getElementById('gPin').value;
-  try{
-    token = await unseal(p);
-    document.getElementById('gPin').value = "";
-    say('sayPin', "");
-    step('post'); prefill();
-  }catch(err){ say('sayPin', "Not that one.", true); }
-}
-
 document.getElementById('gForget').addEventListener('click', ()=>{
-  localStorage.removeItem(VAULT); token = null;
+  try{ localStorage.removeItem(VAULT); }catch(e){}
+  token = null;
   step('setup'); focus('gToken');
 });
 
