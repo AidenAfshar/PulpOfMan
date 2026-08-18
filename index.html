@@ -28,9 +28,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="preload" as="image" href="assets/wall.jpg">
 <link rel="preload" as="image" href="assets/shelf.png">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400&family=Caveat:wght@400;500&display=swap" rel="stylesheet">
+<link rel="preload" as="font" type="font/woff2" href="assets/fonts/architects-daughter-400.woff2" crossorigin>
 
 <!-- ═══════════════════════════════════════════════════════════════════
      A PULP OF MAN
@@ -54,6 +52,17 @@
 </script>
 
 <style>
+/* the fonts live here rather than at Google: nothing to fetch from anyone else,
+   nothing to break when a third party is unreachable */
+@font-face{ font-family:"Cormorant Garamond"; font-style:normal; font-weight:300;
+  font-display:swap; src:url(assets/fonts/cormorant-300.woff2) format("woff2"); }
+@font-face{ font-family:"Cormorant Garamond"; font-style:normal; font-weight:400;
+  font-display:swap; src:url(assets/fonts/cormorant-400.woff2) format("woff2"); }
+@font-face{ font-family:"Caveat"; font-style:normal; font-weight:400;
+  font-display:swap; src:url(assets/fonts/caveat-400.woff2) format("woff2"); }
+@font-face{ font-family:"Architects Daughter"; font-style:normal; font-weight:400;
+  font-display:swap; src:url(assets/fonts/architects-daughter-400.woff2) format("woff2"); }
+
 :root{
   --rowH: 278px;      /* one shelf's worth of vertical space          */
   --base: 60px;       /* space under a scroll's foot: slab + shadow   */
@@ -230,6 +239,16 @@ main{ flex:1 0 auto; padding-bottom:clamp(24px,9vh,110px); }
 #open .stack{ width:100%; max-width:none; cursor:zoom-in; transition:width .38s ease; }
 #open.far .stack{ cursor:zoom-out; }
 #open .stack img, #open .stack canvas{ display:block; width:100%; height:auto; }
+#open .stack .text{
+  font-family:"Architects Daughter","Bradley Hand",cursive;
+  font-size:1em; line-height:1.95;
+  color:#242c46;
+  padding:clamp(26px, 5.5%, 58px) clamp(24px, 6.5%, 66px);
+  white-space:pre-wrap; word-break:break-word;
+  text-shadow:0 .5px 0 rgba(255,255,255,.25);
+  cursor:zoom-in; -webkit-user-select:text; user-select:text;
+}
+#open.far .stack .text{ cursor:zoom-out; }
 #open .stack canvas + canvas{ border-top:1px solid rgba(96,82,54,.20); }  /* fold between pages */
 
 #shut{
@@ -271,6 +290,13 @@ main{ flex:1 0 auto; padding-bottom:clamp(24px,9vh,110px); }
 }
 #gate input:focus{ outline:none; border-bottom-color:#2b3350; background:rgba(255,255,255,.62); }
 #gate input[type=file]{ font-family:inherit; font-size:15px; }
+#gate textarea{
+  width:100%; padding:10px; resize:vertical;
+  font-family:"Architects Daughter","Bradley Hand",cursive; font-size:16px; line-height:1.6;
+  color:#2b3350; background:rgba(255,255,255,.42);
+  border:none; border-bottom:1.5px solid rgba(43,51,80,.42); border-radius:2px;
+}
+#gate textarea:focus{ outline:none; border-bottom-color:#2b3350; background:rgba(255,255,255,.62); }
 #gate button{
   margin-top:22px; width:100%; padding:11px;
   font-family:"Cormorant Garamond", Georgia, serif; font-size:16px;
@@ -324,6 +350,8 @@ h1{ cursor:default; }
       <h2>First, the key</h2>
       <label for="gToken">GitHub token (fine-grained, Contents: read &amp; write)</label>
       <input id="gToken" type="password" autocomplete="off" spellcheck="false" autofocus>
+      <label for="gGem">Google AI Studio key — for reading the handwriting</label>
+      <input id="gGem" type="password" autocomplete="off" spellcheck="false">
       <button id="gSave">Remember on this device</button>
       <p class="hint">Kept in this browser only, and never written into the site — the
         published files hold no secret. Anyone using this browser can post, so set it up
@@ -339,6 +367,9 @@ h1{ cursor:default; }
       <input id="gDate" type="date">
       <label for="gNote">A word for the filename (optional)</label>
       <input id="gNote" type="text" spellcheck="false" placeholder="morning">
+      <label for="gText">Transcript <span class="forget" id="gRead">read it again</span></label>
+      <textarea id="gText" rows="9" spellcheck="true"
+                placeholder="Choose a page and it will be read aloud to itself here."></textarea>
       <button id="gPost">Publish</button>
       <div class="say" id="sayPost"></div>
     </div>
@@ -416,8 +447,16 @@ function makeEntry(name, urls, kind, id){
   const d = dateFrom(name);
   return { name, urls, id,
            kind: kind || (/\.pdf$/i.test(name) ? "pdf" : "image"),
+           textUrl: null,                       // filled in by pairUp()
            key: d && d.key, label: d ? d.label : "",
            today: !!d && d.key === todayKey };
+}
+
+/* A transcript lives beside its scan as <same name>.txt. It is a companion,
+   not an entry of its own, so it never becomes a scroll. */
+function pairUp(entries, transcripts){
+  entries.forEach(e => { if(transcripts[e.name + ".txt"]) e.textUrl = transcripts[e.name + ".txt"]; });
+  return entries;
 }
 
 async function fromDrive(){
@@ -426,9 +465,11 @@ async function fromDrive(){
   if(!r.ok) throw new Error("relay " + r.status);
   const j = await r.json();
   if(j && j.ok === false) throw new Error(j.error || "relay error");
-  return (j.entries || [])
-    .filter(f => f && f.name && (f.id || f.url))
-    .map(f => makeEntry(f.name, f.url ? [f.url] : driveUrls(f.id), f.kind, f.id));
+  const all = (j.entries || []).filter(f => f && f.name && (f.id || f.url));
+  const transcripts = {};
+  all.forEach(f => { if(/\.txt$/i.test(f.name)) transcripts[f.name] = f.url || driveUrls(f.id)[0]; });
+  return pairUp(all.filter(f => FILE_RE.test(f.name))
+                   .map(f => makeEntry(f.name, f.url ? [f.url] : driveUrls(f.id), f.kind, f.id)), transcripts);
 }
 
 async function fromGitHub(){
@@ -442,8 +483,11 @@ async function fromGitHub(){
   if(!r.ok) throw new Error("github " + r.status);
   const j = await r.json();
   if(!Array.isArray(j)) throw new Error("github: unexpected reply");
-  return j.filter(f => f.type === "file" && FILE_RE.test(f.name))
-          .map(f => makeEntry(f.name, [f.download_url]));
+  const files = j.filter(f => f.type === "file");
+  const transcripts = {};
+  files.forEach(f => { if(/\.txt$/i.test(f.name)) transcripts[f.name] = f.download_url; });
+  return pairUp(files.filter(f => FILE_RE.test(f.name))
+                     .map(f => makeEntry(f.name, [f.download_url])), transcripts);
 }
 
 async function fromManifest(){
@@ -451,9 +495,12 @@ async function fromManifest(){
   if(!r.ok) throw new Error("manifest " + r.status);
   const j = await r.json();
   const dir = SOURCE.dir || "entries";
-  return (Array.isArray(j) ? j : j.entries || []).map(x => typeof x === "string"
-    ? makeEntry(x.split("/").pop(), [x.includes("/") ? x : `${dir}/${x}`])
-    : makeEntry(x.name || x.file || "", [x.url || `${dir}/${x.file || x.name}`]));
+  const list = (Array.isArray(j) ? j : j.entries || []).map(x => typeof x === "string"
+    ? { name: x.split("/").pop(), url: x.includes("/") ? x : `${dir}/${x}` }
+    : { name: x.name || x.file || "", url: x.url || `${dir}/${x.file || x.name}` });
+  const transcripts = {};
+  list.forEach(f => { if(/\.txt$/i.test(f.name)) transcripts[f.name] = f.url; });
+  return pairUp(list.filter(f => FILE_RE.test(f.name)).map(f => makeEntry(f.name, [f.url])), transcripts);
 }
 
 /* Drive first; the others only if Drive is unset or unreachable. */
@@ -674,9 +721,50 @@ function remember(key, canvases){
   }
 }
 
+const textCache = new Map();
+async function transcriptOf(entry){
+  if(textCache.has(entry.name)) return textCache.get(entry.name);
+  const r = await fetch(entry.textUrl, {cache:"no-store"});
+  if(!r.ok) throw new Error("transcript " + r.status);
+  const t = (await r.text()).trim();
+  textCache.set(entry.name, t);
+  return t;
+}
+
 /* fill the sheet, and report how tall it wants to be per unit of width */
 async function buildContent(entry, W, mine){
   stack.textContent = "";
+
+  // written out in full: no scan needed, and nothing to wait for but the words
+  if(entry.textUrl){
+    try{
+      const words = await transcriptOf(entry);
+      if(mine !== gen) return 1.4;
+      if(words){
+        if(document.fonts && document.fonts.load) await document.fonts.load('1em "Architects Daughter"');
+        const box = document.createElement('div');
+        box.className = "text";
+        box.textContent = words;
+        stack.style.fontSize = TEXT_SIZE + "px";
+
+        // Measure at the width it will END at. The scroll is still in flight and
+        // only a few pixels wide just now; measuring that gives a tall thin column.
+        // The probe is a real box of the final width, so the percentage padding
+        // in .text resolves against the right number too.
+        const probe = document.createElement('div');
+        probe.style.cssText = "position:absolute; left:0; top:0; visibility:hidden; width:" + W + "px";
+        probe.appendChild(box);
+        stack.appendChild(probe);
+        const tall = probe.offsetHeight;
+        stack.removeChild(probe);
+        stack.appendChild(box);
+
+        return Math.max(tall, 1) / W;                    // as tall as the words need
+      }
+    }catch(err){ console.warn("[pulp]", entry.name, "transcript →", err.message); }
+    stack.textContent = "";                              // fall back to the scan
+  }
+
   if(entry.kind === "pdf") return await drawPdf(entry, W, mine);
   const im = await loadImage(entry.urls);
   if(mine !== gen) return 1.4;
@@ -750,6 +838,7 @@ function closeScroll(){
    Nothing here closes the scroll — that is the X's job — so you can
    tap about freely without losing your place.                    */
 const ZOOMS = [1, 1.6, 2.4];
+const TEXT_SIZE = 21;              // how big transcribed handwriting starts out
 let zoomAt = 0;
 
 function setZoom(next, x, y){
@@ -759,17 +848,28 @@ function setZoom(next, x, y){
   const fy = (sheet.scrollTop  + (y - box.top )) / Math.max(sheet.scrollHeight, 1);
 
   zoomAt = next;
-  stack.style.width = (ZOOMS[zoomAt] * 100) + "%";
-  openEl.classList.toggle('far', zoomAt === ZOOMS.length - 1);
+  applyZoom();
 
   requestAnimationFrame(()=>{        // hold that spot under the finger
     sheet.scrollLeft = fx * sheet.scrollWidth  - (x - box.left);
     sheet.scrollTop  = fy * sheet.scrollHeight - (y - box.top);
   });
 }
+function applyZoom(){
+  const z = ZOOMS[zoomAt];
+  if(stack.firstElementChild && stack.firstElementChild.classList.contains('text')){
+    stack.style.width = "100%";                 // words reflow; make them bigger instead
+    stack.style.fontSize = (TEXT_SIZE * z) + "px";
+  }else{
+    stack.style.fontSize = "";
+    stack.style.width = (z * 100) + "%";
+  }
+  openEl.classList.toggle('far', zoomAt === ZOOMS.length - 1);
+}
 function resetZoom(){
   zoomAt = 0;
   stack.style.width = "100%";
+  stack.style.fontSize = "";
   openEl.classList.remove('far');
   sheet.scrollLeft = 0;
 }
@@ -842,19 +942,172 @@ addEventListener('keydown', e=>{ if(e.key === 'Escape' && gate.classList.contain
 
 document.getElementById('gSave').addEventListener('click', ()=>{
   const t = document.getElementById('gToken').value.trim();
+  const g = document.getElementById('gGem').value.trim();
   if(t.length < 20) return say('saySetup', "That doesn't look like a token.", true);
-  try{ localStorage.setItem(VAULT, t); }
-  catch(err){ return say('saySetup', "This browser won't keep it — private window?", true); }
+  try{
+    localStorage.setItem(VAULT, t);
+    if(g) localStorage.setItem(GEM_KEY, g); else localStorage.removeItem(GEM_KEY);
+    localStorage.removeItem(GEM_MODEL);            // a new key may see different models
+  }catch(err){ return say('saySetup', "This browser won't keep it — private window?", true); }
   token = t;
+  gemKey = g || null;
   document.getElementById('gToken').value = "";
+  document.getElementById('gGem').value = "";
   step('post'); prefill();
 });
 
 document.getElementById('gForget').addEventListener('click', ()=>{
-  try{ localStorage.removeItem(VAULT); }catch(e){}
-  token = null;
+  try{ localStorage.removeItem(VAULT); localStorage.removeItem(GEM_KEY);
+       localStorage.removeItem(GEM_MODEL); }catch(e){}
+  token = null; gemKey = null;
   step('setup'); focus('gToken');
 });
+
+/* ══════════════════════════════════════════════════════════════
+   READING THE HANDWRITING
+   Pages go to Google's vision model once, here, at publishing time.
+   The words it returns are committed beside the scan as a .txt, so
+   every reader afterwards is just fetching a text file — no key, no
+   cost, no waiting. Your key never leaves this browser.
+   ══════════════════════════════════════════════════════════════ */
+const GEM_KEY = "pulp.gem", GEM_MODEL = "pulp.gemmodel";
+let gemKey = null;
+try{ gemKey = localStorage.getItem(GEM_KEY) || null; }catch(e){}
+
+const READ_PROMPT =
+`You are transcribing pages from a handwritten personal journal, written with a fountain pen. The hand may be cursive, hurried, and difficult.
+
+Return ONLY the transcription. No preamble, no commentary, no markdown, no headings, no code fences.
+
+- Keep the writer's own line breaks and paragraph breaks.
+- Keep their spelling, punctuation, capitalisation and grammar exactly as written, mistakes included. Do not tidy anything.
+- Leave crossed-out words out, unless what replaced them is unclear.
+- Where a word is genuinely illegible, put [?] rather than guessing.
+- Ignore page numbers, margin rulings and printed letterhead.
+- With several pages, transcribe them in order, separated by a blank line.`;
+
+/* Model names come and go, so ask the key what it can actually use. */
+async function geminiModel(){
+  let cached = null;
+  try{ cached = localStorage.getItem(GEM_MODEL); }catch(e){}
+  if(cached) return cached;
+
+  const r = await fetch("https://generativelanguage.googleapis.com/v1beta/models?key=" + encodeURIComponent(gemKey));
+  if(!r.ok) throw new Error("Google refused the key (" + r.status + ")");
+  const j = await r.json();
+  const usable = (j.models || [])
+    .filter(m => (m.supportedGenerationMethods || []).includes("generateContent"))
+    .map(m => String(m.name).replace(/^models\//, ""))
+    .filter(n => !/embedding|aqa|imagen|veo|tts|image-generation|gemma/i.test(n));
+  if(!usable.length) throw new Error("that key has no usable model on it");
+
+  const score = n =>
+      (/flash/i.test(n) ? 100 : 0)
+    + (/pro/i.test(n)   ?  60 : 0)
+    - (/lite|preview|exp|thinking|latest/i.test(n) ? 25 : 0)
+    + (parseFloat((n.match(/(\d+\.\d+)/) || [0, "0"])[1]) || 0) * 10;
+  usable.sort((a, b) => score(b) - score(a));
+  try{ localStorage.setItem(GEM_MODEL, usable[0]); }catch(e){}
+  return usable[0];
+}
+
+function loadLocalImage(file){
+  return new Promise((res, rej)=>{
+    const url = URL.createObjectURL(file);
+    const im = new Image();
+    im.onload  = ()=>{ URL.revokeObjectURL(url); res(im); };
+    im.onerror = ()=>{ URL.revokeObjectURL(url); rej(new Error("this browser can't open that image — HEIC?")); };
+    im.src = url;
+  });
+}
+
+const MAX_READ_PAGES = 15;
+
+/* Turn whatever was chosen into page-sized JPEGs the model can look at. */
+async function pageImages(file, note){
+  const LONG = 1700;                       // plenty for handwriting, small on the wire
+  const shots = [];
+
+  if(file.type === "application/pdf" || /\.pdf$/i.test(file.name)){
+    const lib = await ensurePdfLib();
+    const doc = await lib.getDocument({data: new Uint8Array(await file.arrayBuffer())}).promise;
+    const n = Math.min(doc.numPages, MAX_READ_PAGES);
+    for(let i = 1; i <= n; i++){
+      note && note(`Reading page ${i} of ${n}…`);
+      const page = await doc.getPage(i);
+      const one = page.getViewport({scale: 1});
+      const vp  = page.getViewport({scale: Math.min(LONG / one.width, 3)});
+      const cv  = document.createElement('canvas');
+      cv.width = Math.round(vp.width); cv.height = Math.round(vp.height);
+      const ctx = cv.getContext('2d');
+      ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, cv.width, cv.height);   // no black behind ink
+      await page.render({canvasContext: ctx, viewport: vp}).promise;
+      shots.push(cv.toDataURL("image/jpeg", 0.86).split(",")[1]);
+      page.cleanup();
+    }
+    return {shots, total: doc.numPages, read: n};
+  }
+
+  const im = await loadLocalImage(file);
+  const scale = Math.min(1, LONG / Math.max(im.naturalWidth, im.naturalHeight));
+  const cv = document.createElement('canvas');
+  cv.width  = Math.max(1, Math.round(im.naturalWidth  * scale));
+  cv.height = Math.max(1, Math.round(im.naturalHeight * scale));
+  const ctx = cv.getContext('2d');
+  ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, cv.width, cv.height);
+  ctx.drawImage(im, 0, 0, cv.width, cv.height);
+  shots.push(cv.toDataURL("image/jpeg", 0.88).split(",")[1]);
+  return {shots, total: 1, read: 1};
+}
+
+async function transcribe(shots){
+  const model = await geminiModel();
+  const parts = [{text: READ_PROMPT}].concat(
+    shots.map(b64 => ({inline_data: {mime_type: "image/jpeg", data: b64}})));
+  const r = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=`
+      + encodeURIComponent(gemKey),
+    { method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({
+        contents: [{parts}],
+        generationConfig: {temperature: 0, maxOutputTokens: 8192}
+      }) });
+  if(!r.ok){
+    let msg = "Google said " + r.status;
+    try{ const e = await r.json(); if(e.error && e.error.message) msg = e.error.message; }catch(e){}
+    if(r.status === 404){ try{ localStorage.removeItem(GEM_MODEL); }catch(e){} }  // model renamed
+    throw new Error(msg);
+  }
+  const j = await r.json();
+  const parts2 = (((j.candidates || [])[0] || {}).content || {}).parts || [];
+  return parts2.map(x => x.text || "").join("").trim();
+}
+
+/* ── the read button, and reading whatever was just chosen ── */
+const fileBox = document.getElementById('gFile');
+const textBox = document.getElementById('gText');
+
+async function readChosenPage(){
+  const file = fileBox.files[0];
+  if(!file) return say('sayPost', "Choose the page first.", true);
+  if(!gemKey) return say('sayPost', "No Google key saved — publishing the scan alone.", true);
+  textBox.value = "";
+  say('sayPost', "Reading your handwriting…");
+  try{
+    const {shots, total, read} = await pageImages(file, m => say('sayPost', m));
+    say('sayPost', "Reading your handwriting…");
+    const words = await transcribe(shots);
+    textBox.value = words;
+    say('sayPost', words
+      ? (read < total ? `Read the first ${read} of ${total} pages. Check it over.`
+                      : "Read it. Check it over before publishing.")
+      : "Nothing legible came back.", !words);
+  }catch(err){
+    say('sayPost', String(err.message || err), true);
+  }
+}
+fileBox.addEventListener('change', ()=>{ if(fileBox.files[0]) readChosenPage(); });
+document.getElementById('gRead').addEventListener('click', readChosenPage);
 
 /* ── publishing ── */
 function fileToBase64(file){
@@ -865,6 +1118,7 @@ function fileToBase64(file){
     fr.readAsDataURL(file);
   });
 }
+const textToBase64 = t => btoa(String.fromCharCode(...new TextEncoder().encode(t)));
 
 async function putFile(path, b64){
   const url = `https://api.github.com/repos/${SOURCE.user}/${SOURCE.repo}/contents/${path}`;
@@ -881,7 +1135,7 @@ async function putFile(path, b64){
 
 document.getElementById('gPost').addEventListener('click', async ()=>{
   const btn  = document.getElementById('gPost');
-  const file = document.getElementById('gFile').files[0];
+  const file = fileBox.files[0];
   const date = document.getElementById('gDate').value;
   const note = document.getElementById('gNote').value.trim();
   if(!file) return say('sayPost', "Choose the page first.", true);
@@ -894,16 +1148,24 @@ document.getElementById('gPost').addEventListener('click', async ()=>{
   say('sayPost', "Sending…");
   try{
     const b64 = await fileToBase64(file);
-    let done = false;
-    for(let n = 0; n < 9 && !done; n++){
+    let path = null;
+    for(let n = 0; n < 9 && !path; n++){
       const tail = n ? `-${n+1}` : "";
-      done = await putFile(`${SOURCE.dir}/${date}${slug}${tail}${ext}`, b64);
+      const p = `${SOURCE.dir}/${date}${slug}${tail}${ext}`;
+      if(await putFile(p, b64)) path = p;
     }
-    if(!done) throw new Error("nine entries already share that name");
-    say('sayPost', "On the shelf.");
-    document.getElementById('gFile').value = "";
+    if(!path) throw new Error("nine entries already share that name");
+
+    const words = textBox.value.trim();
+    if(words){
+      say('sayPost', "Sending the words…");
+      await putFile(path + ".txt", textToBase64(words));   // same name, plus .txt
+    }
+
+    say('sayPost', words ? "On the shelf, in your own words." : "On the shelf.");
+    fileBox.value = ""; textBox.value = "";
     document.getElementById('gNote').value = "";
-    setTimeout(async ()=>{ closeGate(); render(await loadEntries()); }, 900);
+    setTimeout(async ()=>{ closeGate(); render(await loadEntries()); }, 1000);
   }catch(err){
     say('sayPost', String(err.message || err), true);
   }finally{

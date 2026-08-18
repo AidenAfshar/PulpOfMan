@@ -5,8 +5,9 @@ and it lifts off the shelf and unrolls. Anything dated today wears a small blue
 feather.
 
 Entries are photographs or PDFs sitting in the **`entries/` folder of this repo** —
-`AidenAfshar/PulpOfMan`, branch `master`. No second service, no sharing settings, no
-relay. If the site loads, the entries load.
+`AidenAfshar/PulpOfMan`, branch `master`. When you publish one, the handwriting is read
+into text and that text is what the scroll shows, set in a handwriting face. The scan is
+kept alongside it.
 
 To publish, you don't go anywhere: **tap the title five times** and a door opens.
 
@@ -70,18 +71,52 @@ Tap the title five times, and then:
 
 | field | what it does |
 |---|---|
-| The page | Choose a photograph or a PDF. On a phone this offers your camera roll and Files. |
+| The page | Choose a photograph or a PDF. On a phone this offers your camera roll and Files. Choosing it starts the reading straight away. |
 | Dated | Defaults to today. This is the date inked down the scroll and what sorts the shelf. |
 | A word | Optional. `morning` becomes `2026-08-17-morning.jpg`. Spaces and punctuation are tidied automatically. |
+| Transcript | What the model read. **Fix it here before publishing** — this is the version people see. *read it again* re-runs it. |
 
 Publish two things on the same date and the second quietly becomes `-2`. Nothing
 overwrites anything.
 
+### Reading the handwriting
+
+When you choose a page, it goes once to Google's vision model and comes back as text,
+into the box in the panel. Nothing is automatic beyond that: **you correct it, then
+publish.** The corrected text is committed beside the scan as a `.txt`, so every reader
+afterwards is just fetching a text file — no key involved, no cost, no waiting.
+
+A few things worth knowing:
+
+- **The model is asked to be faithful, not tidy.** It keeps your line breaks, spelling,
+  punctuation and mistakes, drops crossings-out, and writes `[?]` where a word defeats
+  it rather than inventing one. Look for those when you check it over.
+- **It reads up to 15 pages** in one go. A longer PDF publishes fine; only the first 15
+  get transcribed, and the panel tells you so.
+- **Cost.** Google's free tier is generous enough that a daily journal would likely
+  never pay. If you do exceed it, a page is a fraction of a penny.
+- **No key, no problem.** Leave the Google field empty and everything still works — the
+  entry publishes as a scan and the scroll shows the pages, as it did before.
+- **The model name isn't hardcoded.** On first use the site asks your key which models
+  it can actually run and picks the best available, so it won't break when Google
+  renames things. If a model disappears mid-flight it re-checks automatically.
+
+Your Google key is stored in this browser next to the GitHub token, and — like it — is
+never written into the site.
+
+#### Getting the key
+
+**aistudio.google.com** → **Get API key** → **Create API key**. Paste it into the second
+field of the setup panel. That's the whole errand.
+
 ### PDFs
 
-A PDF behaves like everything else, except that **every page is drawn**, stacked end to
-end, so a four-page entry becomes a genuinely long scroll. There's a faint fold where
-one page meets the next.
+Once an entry has a transcript, the scroll shows the words and never touches the PDF —
+which makes it far quicker to open. The pages are still there in the repo.
+
+For an entry with **no** transcript — anything published before this, or where you
+cleared the box — the scan is shown instead: **every page drawn**, stacked end to end,
+with a faint fold where one page meets the next.
 
 Page one is drawn before the scroll unrolls, and the rest are drawn quietly behind it
 one at a time, so a long entry opens as fast as a short one and scrolling never
@@ -110,8 +145,9 @@ unlabelled scroll is a filename asking to be fixed.
 
 ## Reading it
 
-- **Tap a scroll** — it lifts off the shelf and unrolls. It opens large enough to read
-  without doing anything else.
+- **Tap a scroll** — it lifts off the shelf and unrolls, as far as the words go and no
+  further. It opens large enough to read without doing anything else, and the text can
+  be selected, copied, and found with the browser's own search.
 - **Tap anywhere** — steps closer: normal → half again → two and a bit, then back to
   normal. It zooms around the spot you tapped, so you can walk across a page by
   tapping the bit you want. When you're in close, the page pans in both directions.
@@ -161,6 +197,11 @@ Anything that failed is logged there, prefixed `[pulp]`.
 | Publish says `Bad credentials` | The token expired or was pasted with a stray space. Tap *forget this device* and set it up again. |
 | Scrolls appear but pages are blank | The repo is private. Make it public. |
 | PDFs hang, photos are fine | `assets/pdfjs/` didn't get uploaded — 1.5 MB, easy to miss. |
+| Everything is in the wrong font | `assets/fonts/` didn't get uploaded. |
+| Reading says `API key not valid` | The Google key was mistyped, or the Generative Language API isn't enabled on that project. Make a fresh one at aistudio.google.com. |
+| Reading says `quota` or `429` | You've gone past the free tier for now. Wait, or publish without the transcript and add it later by hand. |
+| A transcript is wrong | Edit `entries/<name>.txt` directly on GitHub. It's a plain text file; the scroll follows it. |
+| You want the scan back for one entry | Delete its `.txt`. The scroll reverts to showing the pages. |
 
 ---
 
@@ -213,9 +254,10 @@ a scroll opens by default.
 index.html            the whole site, including the hidden door
 CNAME                 pulpofman.com
 site.webmanifest      name and icons for Add to Home Screen
-entries/              your entries — the panel writes here
+entries/              your entries, and a .txt of each one's words — the panel writes both
 assets/               rendered wall, shelf, scrolls, rolls, paper, icons, share card
 assets/pdfjs/         Mozilla's pdf.js, for drawing PDF pages (Apache 2.0)
+assets/fonts/         Cormorant Garamond, Caveat, Architects Daughter (OFL)
 entries.json          last-ditch fallback listing; unused in normal operation
 tools/                the Python that renders assets/, plus the old Drive relay
 ```
