@@ -15,9 +15,13 @@ To publish, you don't go anywhere: **tap the title five times** and a door opens
 ## The hidden door
 
 Tap **A PULP OF MAN** five times quickly. A panel appears on parchment. The first time,
-it asks for a GitHub token and a PIN of your choosing; after that, just the PIN. Then
-you pick a file, confirm the date, and hit Publish. The scroll appears on the shelf a
-moment later.
+it asks for a GitHub token and a password of your choosing; after that, just the
+password. Then you pick a file, confirm the date, and hit Publish. The scroll appears
+on the shelf a moment later.
+
+The password is whatever you type at setup — `thoughtsiwontforget`, if you like. It is
+deliberately *not* written into this file: anything in `index.html` is published to the
+world, so a password living there would protect nothing.
 
 Nothing about this is visible to anyone else. The public site has no menu, no login
 link, no hint that the panel exists — five taps on a title is not something a visitor
@@ -25,8 +29,8 @@ does by accident.
 
 ### How the key is kept
 
-Your token is **encrypted with your PIN and stored only in that browser**
-(AES-GCM, key stretched from the PIN with 250,000 rounds of PBKDF2). It is never
+Your token is **encrypted with your password and stored only in that browser**
+(AES-GCM, key stretched from the password with 250,000 rounds of PBKDF2). It is never
 written into `index.html`, so nothing secret is ever published — anyone can read every
 byte of this repo and find no way in.
 
@@ -52,7 +56,7 @@ The practical consequences:
 4. **Permissions** → *Repository permissions* → **Contents** → **Read and write**.
    That is the only one. Leave everything else alone.
 5. Generate, and copy the token. GitHub shows it exactly once.
-6. On the site, tap the title five times, paste it in, choose a PIN, save.
+6. On the site, tap the title five times, paste it in, choose a password, save.
 
 A fine-grained token scoped this way can do precisely one thing: read and write files
 in `PulpOfMan`. It cannot touch your other repositories, your account, or anything
@@ -62,7 +66,7 @@ else.
 
 ## Publishing
 
-Tap the title five times → PIN → then:
+Tap the title five times → password → then:
 
 | field | what it does |
 |---|---|
@@ -78,6 +82,12 @@ overwrites anything.
 A PDF behaves like everything else, except that **every page is drawn**, stacked end to
 end, so a four-page entry becomes a genuinely long scroll. There's a faint fold where
 one page meets the next.
+
+Page one is drawn before the scroll unrolls, and the rest are drawn quietly behind it
+one at a time, so a long entry opens as fast as a short one and scrolling never
+stutters. Opening the same entry again is instant — the last three documents you
+looked at stay drawn. A PDF also begins downloading the moment your finger or cursor
+lands on its scroll, before you've even tapped.
 
 Keep them under about 25 MB. Tap the page when it's open to zoom in — that works on
 PDF pages too.
@@ -142,6 +152,7 @@ Anything that failed is logged there, prefixed `[pulp]`.
 | Shelf empty, console says `fromGitHub → github 404` | Wrong `user`/`repo`/`branch` in `SOURCE` at the top of `index.html`, or there's no `entries/` folder yet. |
 | Shelf empty, console says `github 403` | You've made more than 60 anonymous requests in an hour from this network. Unlock the panel — once you do, the site uses your token and the ceiling rises to 5,000. |
 | Five taps do nothing | You're on `file://` or plain `http`. The panel needs https. |
+| Forgot the password | Tap *forget this device* on the password screen, then set it up again with a fresh token. Nothing on the shelf is lost. |
 | Publish says `Resource not accessible` | The token lacks **Contents: Read and write**, or wasn't scoped to `PulpOfMan`. |
 | Publish says `Bad credentials` | The token expired or was pasted with a stray space. Tap *forget this device* and set it up again. |
 | Scrolls appear but pages are blank | The repo is private. Make it public. |
@@ -184,6 +195,12 @@ Layout knobs are in the `:root` block at the top of `index.html`:
 | `--base` | gap under a scroll's foot: slab front plus its shadow |
 | `--sink` | how far onto the slab's top surface the scrolls stand |
 | `--ink` | the colour of the date written on each roll |
+
+And one in the script, just above `drawPlanks`:
+
+| constant | what it does |
+|---|---|
+| `EMPTY_SHELVES` | how many bare shelves hang below the last entry, waiting. Three by default; the page also always draws enough to reach the bottom of the window, and scrolls once they overflow. |
 
 ---
 

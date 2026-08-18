@@ -95,19 +95,33 @@ body.ready{ opacity:1; }
 
 /* ── the title, painted on the stone ──────────────────────── */
 header{ text-align:center; padding:clamp(32px,7vh,72px) 16px clamp(24px,5vh,44px); user-select:none; }
+header{ position:relative; }
+header::before{           /* a pool of shadow so the letters aren't fighting stone */
+  content:""; position:absolute; left:50%; top:50%;
+  width:min(760px, 96vw); height:190px; transform:translate(-50%,-50%);
+  background:radial-gradient(closest-side, rgba(0,0,0,.72), rgba(0,0,0,.34) 55%, rgba(0,0,0,0) 100%);
+  pointer-events:none;
+}
 h1{
-  margin:0; font-weight:300;
-  font-size:clamp(22px, 4.8vw, 35px);
-  letter-spacing:.32em; text-indent:.32em; text-transform:uppercase;
-  color:rgba(226,210,176,.56);
-  text-shadow:0 1px 0 rgba(0,0,0,.9), 0 2px 7px rgba(0,0,0,.7), 0 0 28px rgba(226,205,160,.10);
+  position:relative;
+  margin:0; font-weight:400;
+  font-size:clamp(24px, 5.2vw, 38px);
+  letter-spacing:.24em; text-indent:.24em; text-transform:uppercase;
+  color:#f2e9d4;
+  text-shadow:
+    0 1px 1px rgba(0,0,0,.95),
+    0 2px 8px rgba(0,0,0,.9),
+    0 0 30px rgba(0,0,0,.8);
 }
 
 /* ── shelves ──────────────────────────────────────────────── */
 main{ flex:1 0 auto; padding-bottom:clamp(24px,9vh,110px); }
 #shelves{
   position:relative;
-  display:flex; flex-wrap:wrap; align-items:flex-end;
+  display:flex; flex-wrap:wrap;
+  align-items:flex-end;      /* a scroll stands on its own shelf   */
+  align-content:flex-start;  /* and the rows stay packed at the top,
+                                however many empty shelves hang below */
   padding:0 clamp(22px, 7vw, 130px);
 }
 .plank{
@@ -290,17 +304,17 @@ h1{ cursor:default; }
       <h2>First, the key</h2>
       <label for="gToken">GitHub token (fine-grained, Contents: read &amp; write)</label>
       <input id="gToken" type="password" autocomplete="off" spellcheck="false">
-      <label for="gPinNew">Choose a PIN for this device</label>
-      <input id="gPinNew" type="password" inputmode="numeric" autocomplete="off">
+      <label for="gPinNew">Choose a password for this device</label>
+      <input id="gPinNew" type="password" autocomplete="off" spellcheck="false">
       <button id="gSave">Remember on this device</button>
-      <p class="hint">The token is encrypted with your PIN and kept only in this
+      <p class="hint">The token is encrypted with your password and kept only in this
         browser. It is never written into the site, so nothing secret is published.</p>
       <div class="say" id="saySetup"></div>
     </div>
 
     <div class="step" id="stepPin">
-      <h2>PIN <span class="forget" id="gForget">forget this device</span></h2>
-      <input id="gPin" type="password" inputmode="numeric" autocomplete="off" autofocus>
+      <h2>Password <span class="forget" id="gForget">forget this device</span></h2>
+      <input id="gPin" type="password" autocomplete="off" spellcheck="false" autofocus>
       <button id="gUnlock">Unlock</button>
       <div class="say" id="sayPin"></div>
     </div>
@@ -472,6 +486,14 @@ function render(entries){
     // a scroll's width is only known once its image decodes — re-lay the slabs then
     s.querySelector('img').addEventListener('load', schedulePlanks);
 
+    // start pulling a PDF down the moment a finger or cursor lands on it
+    if(e.kind === "pdf"){
+      const warm = ()=>{ pdfBytes(e).catch(()=>{}); slot.removeEventListener('pointerenter', warm);
+                         slot.removeEventListener('touchstart', warm); };
+      slot.addEventListener('pointerenter', warm);
+      slot.addEventListener('touchstart', warm, {passive:true});
+    }
+
     slot.appendChild(s);
     slot.addEventListener('click', ()=>openScroll(e, s));
     slot.addEventListener('keydown', ev=>{
@@ -483,21 +505,33 @@ function render(entries){
 }
 
 /* one stone slab under each wrapped row, wherever the row happens to land */
+const EMPTY_SHELVES = 3;      // how many bare shelves to keep below the last entry
+
 function drawPlanks(){
   shelves.querySelectorAll('.plank').forEach(p=>p.remove());
-  const css = getComputedStyle(document.documentElement);
+  const css  = getComputedStyle(document.documentElement);
   const rowH = parseFloat(css.getPropertyValue('--rowH'));
   const base = parseFloat(css.getPropertyValue('--base'));
   const sink = parseFloat(css.getPropertyValue('--sink'));
-  const tops = new Set();
-  shelves.querySelectorAll('.slot').forEach(el => tops.add(el.offsetTop));
-  if(!tops.size) tops.add(0);                    // an empty shelf is still a shelf
-  [...tops].sort((a,b)=>a-b).forEach(t=>{
+
+  let lastTop = 0;
+  shelves.querySelectorAll('.slot').forEach(el => { if(el.offsetTop > lastTop) lastTop = el.offsetTop; });
+  const filled = Math.round(lastTop / rowH) + 1;
+
+  // carry on past the last entry: empty shelves waiting to be filled, and always
+  // enough of them to reach the bottom of the window
+  const toWindow = Math.ceil((innerHeight - shelves.getBoundingClientRect().top) / rowH);
+  const rows = Math.max(filled + EMPTY_SHELVES, toWindow, 4);
+
+  const want = (rows * rowH) + 'px';
+  if(shelves.style.minHeight !== want) shelves.style.minHeight = want;
+
+  for(let i = 0; i < rows; i++){
     const p = document.createElement('div');
     p.className = 'plank';
-    p.style.top = (t + rowH - base - sink) + 'px';
+    p.style.top = (i * rowH + rowH - base - sink) + 'px';
     shelves.appendChild(p);
-  });
+  }
 }
 let plankTimer = 0;
 function schedulePlanks(){ clearTimeout(plankTimer); plankTimer = setTimeout(drawPlanks, 40); }
@@ -565,23 +599,73 @@ async function pdfBytes(entry){
   return bytes;
 }
 
-async function drawPdf(entry, W, mine){
+/* Opened documents and their page shapes, so a second look costs nothing */
+const pdfDocs = new Map();
+
+async function pdfDoc(entry){
+  if(pdfDocs.has(entry.name)) return pdfDocs.get(entry.name);
   const [lib, data] = await Promise.all([ensurePdfLib(), pdfBytes(entry)]);
   const doc = await lib.getDocument({data: data.slice()}).promise;
-  const dpr = Math.min(devicePixelRatio || 1, 2);
-  let ratio = 0;
+  const shape = [];                       // measuring a page is cheap; drawing is not
   for(let n = 1; n <= doc.numPages; n++){
-    if(mine !== gen) return ratio;        // a different scroll was opened; stop
-    const page = await doc.getPage(n);
-    const scale = (W * dpr) / page.getViewport({scale:1}).width;
-    const vp = page.getViewport({scale});
-    const cv = document.createElement('canvas');
-    cv.width = Math.round(vp.width); cv.height = Math.round(vp.height);
-    stack.appendChild(cv);
-    await page.render({canvasContext: cv.getContext('2d'), viewport: vp}).promise;
-    ratio += vp.height / vp.width;          // pages stack, so heights add up
+    const vp = (await doc.getPage(n)).getViewport({scale:1});
+    shape.push({w: vp.width, h: vp.height});
   }
-  return ratio;
+  const rec = {doc, shape};
+  pdfDocs.set(entry.name, rec);
+  return rec;
+}
+
+/* One page at a time, yielding between each, so scrolling never locks up */
+let painter = Promise.resolve();
+function paint(rec, job, W, dpr, mine){
+  painter = painter.then(async ()=>{
+    if(mine !== gen || job.cv.dataset.done) return;
+    const page = await rec.doc.getPage(job.n);
+    const vp = page.getViewport({scale: (W * dpr) / job.shape.w});
+    job.cv.width  = Math.round(vp.width);
+    job.cv.height = Math.round(vp.height);
+    await page.render({canvasContext: job.cv.getContext('2d', {alpha:false}), viewport: vp}).promise;
+    page.cleanup();
+    job.cv.dataset.done = "1";
+    await new Promise(r => setTimeout(r, 0));       // let the browser breathe
+  }).catch(err => console.warn("[pulp] page", job.n, "→", err.message));
+  return painter;
+}
+
+async function drawPdf(entry, W, mine){
+  const rec = await pdfDoc(entry);
+  if(mine !== gen) return 1.4;
+
+  // a long document at full retina would cost more memory than it's worth
+  const dpr = Math.min(devicePixelRatio || 1, rec.shape.length > 8 ? 1.4 : 2);
+
+  const cached = stackCache.get(entry.name + "@" + Math.round(W));
+  if(cached){ cached.forEach(cv => stack.appendChild(cv)); }
+  else{
+    const jobs = rec.shape.map((shape, i)=>{
+      const cv = document.createElement('canvas');
+      cv.width = cv.height = 1;                    // no bitmap until it's drawn
+      cv.style.aspectRatio = `${shape.w} / ${shape.h}`;   // but hold the right space
+      stack.appendChild(cv);
+      return {cv, shape, n: i + 1};
+    });
+    remember(entry.name + "@" + Math.round(W), jobs.map(j => j.cv));
+    await paint(rec, jobs[0], W, dpr, mine);        // page one before we unroll
+    jobs.slice(1).forEach(j => paint(rec, j, W, dpr, mine));   // the rest, quietly
+  }
+  return rec.shape.reduce((t, s) => t + s.h / s.w, 0);
+}
+
+/* keep the last few documents drawn; drop the oldest so phones don't choke */
+const stackCache = new Map();
+function remember(key, canvases){
+  stackCache.set(key, canvases);
+  while(stackCache.size > 3){
+    const oldest = stackCache.keys().next().value;
+    stackCache.get(oldest).forEach(cv => { cv.width = cv.height = 1; });
+    stackCache.delete(oldest);
+  }
 }
 
 /* fill the sheet, and report how tall it wants to be per unit of width */
@@ -681,9 +765,9 @@ function say(id, text, bad){
   el.textContent = text; el.classList.toggle('bad', !!bad);
 }
 
-/* ── sealing the token with the PIN ── */
+/* ── sealing the token with the password ── */
 const enc = new TextEncoder(), dec = new TextDecoder();
-async function pinKey(pin, salt){
+async function pinKey(pin, salt){   // "pin" is whatever passphrase you chose
   const base = await crypto.subtle.importKey("raw", enc.encode(pin), "PBKDF2", false, ["deriveKey"]);
   return crypto.subtle.deriveKey(
     {name:"PBKDF2", salt, iterations:250000, hash:"SHA-256"},
@@ -743,7 +827,7 @@ document.getElementById('gSave').addEventListener('click', async ()=>{
   const t = document.getElementById('gToken').value.trim();
   const p = document.getElementById('gPinNew').value;
   if(t.length < 20) return say('saySetup', "That doesn't look like a token.", true);
-  if(p.length < 4)  return say('saySetup', "Give the PIN at least four characters.", true);
+  if(p.length < 8)  return say('saySetup', "Give the password at least eight characters.", true);
   try{
     await seal(p, t);
     token = t;
