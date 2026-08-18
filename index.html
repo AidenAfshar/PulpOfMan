@@ -241,9 +241,9 @@ main{ flex:1 0 auto; padding-bottom:clamp(24px,9vh,110px); }
 #open .stack img, #open .stack canvas{ display:block; width:100%; height:auto; }
 #open .stack .text{
   font-family:"Architects Daughter","Bradley Hand",cursive;
-  font-size:1em; line-height:1.95;
+  font-size:1em; line-height:1.62;
   color:#242c46;
-  padding:clamp(26px, 5.5%, 58px) clamp(24px, 6.5%, 66px);
+  padding:clamp(20px, 4.2%, 44px) clamp(20px, 5%, 50px);
   white-space:pre-wrap; word-break:break-word;
   text-shadow:0 .5px 0 rgba(255,255,255,.25);
   cursor:zoom-in; -webkit-user-select:text; user-select:text;
@@ -350,12 +350,13 @@ h1{ cursor:default; }
       <h2>First, the key</h2>
       <label for="gToken">GitHub token (fine-grained, Contents: read &amp; write)</label>
       <input id="gToken" type="password" autocomplete="off" spellcheck="false" autofocus>
-      <label for="gGem">Google AI Studio key — for reading the handwriting</label>
+      <label for="gGem">Google AI Studio key — optional, and only makes the reading better</label>
       <input id="gGem" type="password" autocomplete="off" spellcheck="false">
       <button id="gSave">Remember on this device</button>
       <p class="hint">Kept in this browser only, and never written into the site — the
         published files hold no secret. Anyone using this browser can post, so set it up
-        on your own devices only.</p>
+        on your own devices only. Without a Google key the handwriting is still read,
+        on this device, just less well.</p>
       <div class="say" id="saySetup"></div>
     </div>
 
@@ -369,7 +370,7 @@ h1{ cursor:default; }
       <input id="gNote" type="text" spellcheck="false" placeholder="morning">
       <label for="gText">Transcript <span class="forget" id="gRead">read it again</span></label>
       <textarea id="gText" rows="9" spellcheck="true"
-                placeholder="Choose a page and it will be read aloud to itself here."></textarea>
+                placeholder="Choose a page and the words will appear here to be corrected."></textarea>
       <button id="gPost">Publish</button>
       <div class="say" id="sayPost"></div>
     </div>
@@ -597,7 +598,7 @@ const openEl = document.getElementById('open');
 const sheet  = openEl.querySelector('.sheet');
 const stack  = openEl.querySelector('.stack');
 let token = null;              // the GitHub token, only after unlocking
-let current = null, busy = false, gen = 0;   // gen: which open is the live one
+let current = null, currentEntry = null, busy = false, gen = 0;   // gen: which open is the live one
 
 /* ── a photograph: try each of Google's addresses in turn ──── */
 function loadImage(urls){
@@ -745,7 +746,7 @@ async function buildContent(entry, W, mine){
         const box = document.createElement('div');
         box.className = "text";
         box.textContent = words;
-        stack.style.fontSize = TEXT_SIZE + "px";
+        stack.style.fontSize = textSize() + "px";
 
         // Measure at the width it will END at. The scroll is still in flight and
         // only a few pixels wide just now; measuring that gives a tall thin column.
@@ -775,7 +776,7 @@ async function buildContent(entry, W, mine){
 
 function openScroll(entry, el){
   if(busy || current) return;
-  busy = true; current = el;
+  busy = true; current = el; currentEntry = entry;
   const mine = ++gen;
   const r  = el.getBoundingClientRect();
   const vw = innerWidth, vh = innerHeight;
@@ -830,7 +831,7 @@ function closeScroll(){
     openEl.style.width = r.width + 'px';
     stage.classList.remove('on');
     stage.setAttribute('aria-hidden','true');
-    setTimeout(()=>{ el.classList.remove('hidden'); current=null; busy=false; }, 480);
+    setTimeout(()=>{ el.classList.remove('hidden'); current=null; currentEntry=null; busy=false; }, 480);
   }, 620);
 }
 
@@ -838,7 +839,9 @@ function closeScroll(){
    Nothing here closes the scroll — that is the X's job — so you can
    tap about freely without losing your place.                    */
 const ZOOMS = [1, 1.6, 2.4];
-const TEXT_SIZE = 21;              // how big transcribed handwriting starts out
+function textSize(){                // denser on a desktop, larger in the hand
+  return innerWidth < 640 ? 19.5 : 17;
+}
 let zoomAt = 0;
 
 function setZoom(next, x, y){
@@ -859,7 +862,7 @@ function applyZoom(){
   const z = ZOOMS[zoomAt];
   if(stack.firstElementChild && stack.firstElementChild.classList.contains('text')){
     stack.style.width = "100%";                 // words reflow; make them bigger instead
-    stack.style.fontSize = (TEXT_SIZE * z) + "px";
+    stack.style.fontSize = (textSize() * z) + "px";
   }else{
     stack.style.fontSize = "";
     stack.style.width = (z * 100) + "%";
@@ -875,14 +878,49 @@ function resetZoom(){
 }
 
 stage.addEventListener('click', e=>{
-  if(busy || !current || e.target.closest('#shut')) return;
+  if(busy || !current || pinching || e.target.closest('#shut')) return;
   setZoom((zoomAt + 1) % ZOOMS.length, e.clientX, e.clientY);
 });
 document.getElementById('shut').addEventListener('click', e=>{
   e.stopPropagation(); closeScroll();
 });
 addEventListener('keydown', e=>{ if(e.key==='Escape') closeScroll(); });
-addEventListener('resize', ()=>{ if(current) closeScroll(); });
+
+/* A pinch, or the address bar sliding away, used to be read as a resize and
+   slammed the scroll shut. Now only a real change of width does anything, and
+   even then it re-lays the scroll out rather than closing it. */
+let lastW = innerWidth;
+let settle = 0;
+addEventListener('resize', ()=>{
+  if(Math.abs(innerWidth - lastW) < 40) return;     // pinch, URL bar, keyboard
+  lastW = innerWidth;
+  clearTimeout(settle);
+  settle = setTimeout(()=>{ if(current) relayout(); }, 180);
+});
+
+function relayout(){
+  const vw = innerWidth, vh = innerHeight;
+  const W  = Math.min(760, vw * 0.92);
+  openEl.style.width = W + 'px';
+  openEl.style.left  = Math.round((vw - W) / 2) + 'px';
+  if(stack.firstElementChild && stack.firstElementChild.classList.contains('text'))
+    stack.style.fontSize = (textSize() * ZOOMS[zoomAt]) + "px";
+  const H = Math.min(stack.scrollHeight || stack.offsetHeight, vh - 160);
+  openEl.style.top = Math.round(Math.max(26, (vh - (H + 56)) / 2)) + 'px';
+  sheet.style.height = Math.round(H) + 'px';
+}
+
+/* and a two-finger gesture must not land as a tap-to-zoom afterwards */
+let pinching = false, pinchOff = 0;
+addEventListener('touchstart', e=>{
+  if(e.touches.length > 1){ pinching = true; clearTimeout(pinchOff); }
+}, {passive:true});
+addEventListener('touchend', e=>{
+  if(e.touches.length === 0){
+    clearTimeout(pinchOff);
+    pinchOff = setTimeout(()=>{ pinching = false; }, 450);
+  }
+}, {passive:true});
 
 /* ══════════════════════════════════════════════════════════════
    THE HIDDEN DOOR
@@ -987,10 +1025,10 @@ Return ONLY the transcription. No preamble, no commentary, no markdown, no headi
 - With several pages, transcribe them in order, separated by a blank line.`;
 
 /* Model names come and go, so ask the key what it can actually use. */
-async function geminiModel(){
+async function geminiModels(){
   let cached = null;
   try{ cached = localStorage.getItem(GEM_MODEL); }catch(e){}
-  if(cached) return cached;
+  if(cached) return JSON.parse(cached);
 
   const r = await fetch("https://generativelanguage.googleapis.com/v1beta/models?key=" + encodeURIComponent(gemKey));
   if(!r.ok) throw new Error("Google refused the key (" + r.status + ")");
@@ -1007,8 +1045,9 @@ async function geminiModel(){
     - (/lite|preview|exp|thinking|latest/i.test(n) ? 25 : 0)
     + (parseFloat((n.match(/(\d+\.\d+)/) || [0, "0"])[1]) || 0) * 10;
   usable.sort((a, b) => score(b) - score(a));
-  try{ localStorage.setItem(GEM_MODEL, usable[0]); }catch(e){}
-  return usable[0];
+  const shortlist = usable.slice(0, 4);          // spares, for when one is busy
+  try{ localStorage.setItem(GEM_MODEL, JSON.stringify(shortlist)); }catch(e){}
+  return shortlist;
 }
 
 function loadLocalImage(file){
@@ -1023,29 +1062,29 @@ function loadLocalImage(file){
 
 const MAX_READ_PAGES = 15;
 
-/* Turn whatever was chosen into page-sized JPEGs the model can look at. */
-async function pageImages(file, note){
-  const LONG = 1700;                       // plenty for handwriting, small on the wire
-  const shots = [];
+/* Turn whatever was chosen into page-sized canvases. */
+async function pageCanvases(file, note){
+  const LONG = 1800;
+  const out = [];
 
   if(file.type === "application/pdf" || /\.pdf$/i.test(file.name)){
     const lib = await ensurePdfLib();
     const doc = await lib.getDocument({data: new Uint8Array(await file.arrayBuffer())}).promise;
     const n = Math.min(doc.numPages, MAX_READ_PAGES);
     for(let i = 1; i <= n; i++){
-      note && note(`Reading page ${i} of ${n}…`);
+      note && note(`Preparing page ${i} of ${n}…`);
       const page = await doc.getPage(i);
-      const one = page.getViewport({scale: 1});
-      const vp  = page.getViewport({scale: Math.min(LONG / one.width, 3)});
-      const cv  = document.createElement('canvas');
+      const one  = page.getViewport({scale: 1});
+      const vp   = page.getViewport({scale: Math.min(LONG / one.width, 3)});
+      const cv   = document.createElement('canvas');
       cv.width = Math.round(vp.width); cv.height = Math.round(vp.height);
       const ctx = cv.getContext('2d');
-      ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, cv.width, cv.height);   // no black behind ink
+      ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, cv.width, cv.height);
       await page.render({canvasContext: ctx, viewport: vp}).promise;
-      shots.push(cv.toDataURL("image/jpeg", 0.86).split(",")[1]);
+      out.push(cv);
       page.cleanup();
     }
-    return {shots, total: doc.numPages, read: n};
+    return {pages: out, total: doc.numPages, read: n};
   }
 
   const im = await loadLocalImage(file);
@@ -1056,31 +1095,137 @@ async function pageImages(file, note){
   const ctx = cv.getContext('2d');
   ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, cv.width, cv.height);
   ctx.drawImage(im, 0, 0, cv.width, cv.height);
-  shots.push(cv.toDataURL("image/jpeg", 0.88).split(",")[1]);
-  return {shots, total: 1, read: 1};
+  return {pages: [cv], total: 1, read: 1};
 }
 
-async function transcribe(shots){
-  const model = await geminiModel();
+const asJpeg = cv => cv.toDataURL("image/jpeg", 0.86).split(",")[1];
+
+/* ── ENGINE ONE: on this device, no key, nothing to be overloaded ─────────
+   Tesseract is not clever about cursive, so give it the cleanest possible
+   picture: bigger, grey, and thresholded against a local average rather than
+   one number for the whole page — which is what copes with a shadow across
+   the paper or ink that fades along a line.                              */
+function binarize(src){
+  const grow = Math.min(2.5, Math.max(1, 2200 / Math.max(src.width, src.height)));
+  const w = Math.round(src.width * grow), h = Math.round(src.height * grow);
+  const cv = document.createElement('canvas');
+  cv.width = w; cv.height = h;
+  const ctx = cv.getContext('2d', {willReadFrequently: true});
+  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(src, 0, 0, w, h);
+
+  const im = ctx.getImageData(0, 0, w, h), d = im.data;
+  const g = new Float32Array(w * h);
+  for(let i = 0, p = 0; p < g.length; i += 4, p++)
+    g[p] = 0.299 * d[i] + 0.587 * d[i+1] + 0.114 * d[i+2];
+
+  // running sums, so a local average costs four lookups however wide the window
+  const I = new Float64Array((w + 1) * (h + 1));
+  for(let y = 0; y < h; y++){
+    let row = 0;
+    for(let x = 0; x < w; x++){
+      row += g[y * w + x];
+      I[(y + 1) * (w + 1) + x + 1] = I[y * (w + 1) + x + 1] + row;
+    }
+  }
+  const r = Math.max(10, Math.round(Math.min(w, h) / 26));
+  for(let y = 0; y < h; y++){
+    const y0 = Math.max(0, y - r), y1 = Math.min(h - 1, y + r);
+    for(let x = 0; x < w; x++){
+      const x0 = Math.max(0, x - r), x1 = Math.min(w - 1, x + r);
+      const area = (x1 - x0 + 1) * (y1 - y0 + 1);
+      const sum = I[(y1+1)*(w+1) + x1+1] - I[y0*(w+1) + x1+1]
+                - I[(y1+1)*(w+1) + x0]   + I[y0*(w+1) + x0];
+      const p = y * w + x;
+      const v = g[p] < (sum / area) * 0.90 ? 0 : 255;      // ink, or paper
+      d[p*4] = d[p*4+1] = d[p*4+2] = v; d[p*4+3] = 255;
+    }
+  }
+  ctx.putImageData(im, 0, 0);
+  return cv;
+}
+
+let tessLib = null;
+function ensureTesseract(){
+  if(tessLib) return Promise.resolve(tessLib);
+  return new Promise((resolve, reject)=>{
+    const el = document.createElement('script');
+    el.src = "assets/tesseract/tesseract.min.js";
+    el.onload  = ()=>{ tessLib = window.Tesseract; resolve(tessLib); };
+    el.onerror = ()=> reject(new Error("the on-device reader would not load"));
+    document.head.appendChild(el);
+  });
+}
+
+async function readHere(pages, note){
+  const T = await ensureTesseract();
+  note && note("Warming up the reader on this device…");
+  const worker = await T.createWorker("eng", 1, {
+    workerPath: "assets/tesseract/worker.min.js",
+    corePath:   "assets/tesseract/",
+    langPath:   "assets/tesseract/",
+    gzip: true
+  });
+  try{
+    await worker.setParameters({
+      tessedit_pageseg_mode: "6",          // one block of text, which a page is
+      preserve_interword_spaces: "1"
+    });
+    const chunks = [];
+    for(let i = 0; i < pages.length; i++){
+      note && note(`Reading page ${i + 1} of ${pages.length} here…`);
+      const {data} = await worker.recognize(binarize(pages[i]));
+      chunks.push((data.text || "").replace(/[ \t]+\n/g, "\n").trim());
+    }
+    return chunks.filter(Boolean).join("\n\n");
+  } finally { await worker.terminate(); }
+}
+
+/* ── ENGINE TWO: Gemini, when it is willing ───────────────────────────── */
+async function callGemini(model, shots){
   const parts = [{text: READ_PROMPT}].concat(
     shots.map(b64 => ({inline_data: {mime_type: "image/jpeg", data: b64}})));
   const r = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=`
       + encodeURIComponent(gemKey),
     { method: "POST", headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({
-        contents: [{parts}],
-        generationConfig: {temperature: 0, maxOutputTokens: 8192}
-      }) });
+      body: JSON.stringify({ contents: [{parts}],
+                             generationConfig: {temperature: 0, maxOutputTokens: 8192} }) });
   if(!r.ok){
     let msg = "Google said " + r.status;
     try{ const e = await r.json(); if(e.error && e.error.message) msg = e.error.message; }catch(e){}
-    if(r.status === 404){ try{ localStorage.removeItem(GEM_MODEL); }catch(e){} }  // model renamed
-    throw new Error(msg);
+    if(r.status === 404){ try{ localStorage.removeItem(GEM_MODEL); }catch(e){} }
+    const err = new Error(msg);
+    err.busy = (r.status === 503 || r.status === 429 || /overload|unavailable|exhaust/i.test(msg));
+    throw err;
   }
   const j = await r.json();
-  const parts2 = (((j.candidates || [])[0] || {}).content || {}).parts || [];
-  return parts2.map(x => x.text || "").join("").trim();
+  const got = (((j.candidates || [])[0] || {}).content || {}).parts || [];
+  return got.map(x => x.text || "").join("").trim();
+}
+
+/* Overload is per-model and usually passes. Wait a moment, then try the next
+   model on the list rather than giving up on the whole idea. */
+async function readAtGoogle(pages, note){
+  const models = await geminiModels();
+  const shots = pages.map(asJpeg);
+  let last = null;
+  for(let go = 0; go < 4; go++){
+    const model = models[Math.min(go, models.length - 1)];
+    try{
+      note && note(go ? `Trying ${model}…` : "Reading your handwriting…");
+      const words = await callGemini(model, shots);
+      if(words) return words;
+      last = new Error("nothing legible came back");
+    }catch(err){
+      last = err;
+      if(!err.busy) throw err;                       // a real error, not congestion
+      const wait = 700 * Math.pow(2, go);
+      note && note(`${model} is busy — waiting ${Math.round(wait/100)/10}s…`);
+      await new Promise(r => setTimeout(r, wait));
+    }
+  }
+  throw last || new Error("Google stayed busy");
 }
 
 /* ── the read button, and reading whatever was just chosen ── */
@@ -1090,18 +1235,33 @@ const textBox = document.getElementById('gText');
 async function readChosenPage(){
   const file = fileBox.files[0];
   if(!file) return say('sayPost', "Choose the page first.", true);
-  if(!gemKey) return say('sayPost', "No Google key saved — publishing the scan alone.", true);
+
   textBox.value = "";
-  say('sayPost', "Reading your handwriting…");
+  const note = m => say('sayPost', m);
+  note("Preparing the page…");
   try{
-    const {shots, total, read} = await pageImages(file, m => say('sayPost', m));
-    say('sayPost', "Reading your handwriting…");
-    const words = await transcribe(shots);
+    const {pages, total, read} = await pageCanvases(file, note);
+    const short = read < total ? ` Only the first ${read} of ${total} pages.` : "";
+
+    let words = "", how = "";
+    if(gemKey){
+      try{
+        words = await readAtGoogle(pages, note);
+        how = "Google";
+      }catch(err){
+        note("Google wouldn't play — reading it here instead…");
+        console.warn("[pulp] google →", err.message);
+      }
+    }
+    if(!words){
+      words = await readHere(pages, note);          // never busy, never rationed
+      how = "this device";
+    }
+
     textBox.value = words;
     say('sayPost', words
-      ? (read < total ? `Read the first ${read} of ${total} pages. Check it over.`
-                      : "Read it. Check it over before publishing.")
-      : "Nothing legible came back.", !words);
+      ? `Read by ${how}.${short} Check it over — it will need a hand.`
+      : "Nothing legible came back. Publish the scan, or write it out yourself.", !words);
   }catch(err){
     say('sayPost', String(err.message || err), true);
   }

@@ -81,25 +81,40 @@ overwrites anything.
 
 ### Reading the handwriting
 
-When you choose a page, it goes once to Google's vision model and comes back as text,
-into the box in the panel. Nothing is automatic beyond that: **you correct it, then
-publish.** The corrected text is committed beside the scan as a `.txt`, so every reader
-afterwards is just fetching a text file — no key involved, no cost, no waiting.
+Two engines, tried in that order, so a busy server can never stop you publishing.
 
-A few things worth knowing:
+**1. Google, if you've given it a key.** The best reader by a distance. When it comes
+back *overloaded* — which it does, often — the site now waits and tries again, and
+switches to a different model each time rather than hammering the same busy one. Four
+attempts across about ten seconds.
+
+**2. This device, always.** If Google is still refusing, or you never gave a key, the
+page reads the handwriting itself with Tesseract, which lives in `assets/tesseract/`.
+No key, no network, no queue, nothing that can be overloaded or rationed. About eight
+seconds a page.
+
+The status line tells you which one read it.
+
+**Be honest with yourself about the second one.** Tesseract was built for print, not
+cursive fountain pen. To give it the best chance the page is enlarged, turned grey, and
+thresholded against a *local* average rather than one number for the whole sheet —
+which is what copes with a shadow across the paper or ink that fades along a line. It
+will still make a mess of a flowing hand. Treat it as a first draft that saves you the
+typing, not as a transcription.
+
+Either way **you correct the text before publishing** — that box is the point, and it's
+the version people read.
+
+Other things worth knowing:
 
 - **The model is asked to be faithful, not tidy.** It keeps your line breaks, spelling,
   punctuation and mistakes, drops crossings-out, and writes `[?]` where a word defeats
-  it rather than inventing one. Look for those when you check it over.
-- **It reads up to 15 pages** in one go. A longer PDF publishes fine; only the first 15
-  get transcribed, and the panel tells you so.
-- **Cost.** Google's free tier is generous enough that a daily journal would likely
-  never pay. If you do exceed it, a page is a fraction of a penny.
-- **No key, no problem.** Leave the Google field empty and everything still works — the
-  entry publishes as a scan and the scroll shows the pages, as it did before.
+  it rather than inventing one.
+- **Up to 15 pages** are read in one go. A longer PDF publishes fine; the panel says so.
+- **Cost.** Google's free tier would likely cover a daily journal. On this device it's
+  free forever.
 - **The model name isn't hardcoded.** On first use the site asks your key which models
-  it can actually run and picks the best available, so it won't break when Google
-  renames things. If a model disappears mid-flight it re-checks automatically.
+  it can run, keeps the best four, and works down the list when one is busy.
 
 Your Google key is stored in this browser next to the GitHub token, and — like it — is
 never written into the site.
@@ -107,7 +122,7 @@ never written into the site.
 #### Getting the key
 
 **aistudio.google.com** → **Get API key** → **Create API key**. Paste it into the second
-field of the setup panel. That's the whole errand.
+field of the setup panel. Skip it entirely if you'd rather not: everything still works.
 
 ### PDFs
 
@@ -151,6 +166,8 @@ unlabelled scroll is a filename asking to be fixed.
 - **Tap anywhere** — steps closer: normal → half again → two and a bit, then back to
   normal. It zooms around the spot you tapped, so you can walk across a page by
   tapping the bit you want. When you're in close, the page pans in both directions.
+- **Pinch as much as you like.** A two-finger gesture is left alone, and won't be
+  mistaken for a tap when you let go.
 - **The X in the top right, or Esc** — closes it. Only those two. Tapping the dark
   surround does nothing, so you can't lose your place by mis-aiming.
 
@@ -197,6 +214,8 @@ Anything that failed is logged there, prefixed `[pulp]`.
 | Publish says `Bad credentials` | The token expired or was pasted with a stray space. Tap *forget this device* and set it up again. |
 | Scrolls appear but pages are blank | The repo is private. Make it public. |
 | PDFs hang, photos are fine | `assets/pdfjs/` didn't get uploaded — 1.5 MB, easy to miss. |
+| Reading always says "read by this device" | Google is refusing every time. Check the key, or just live with it — the local reader needs no one's permission. |
+| Reading says `the on-device reader would not load` | `assets/tesseract/` didn't get uploaded. It's 15 MB across eight files. |
 | Everything is in the wrong font | `assets/fonts/` didn't get uploaded. |
 | Reading says `API key not valid` | The Google key was mistyped, or the Generative Language API isn't enabled on that project. Make a fresh one at aistudio.google.com. |
 | Reading says `quota` or `429` | You've gone past the free tier for now. Wait, or publish without the transcript and add it later by hand. |
@@ -242,9 +261,10 @@ Layout knobs are in the `:root` block at the top of `index.html`:
 | `--ink` | the colour of the date written on each roll |
 
 There are exactly as many shelves as it takes to hold the scrolls — one more appears
-when a row fills up. Two more knobs sit in the script: `ZOOMS` near `setZoom` sets the
-magnification steps, and the `Math.min(760, vw * 0.92)` in `openScroll` sets how large
-a scroll opens by default.
+when a row fills up. Three more knobs sit in the script: `ZOOMS` near `setZoom` sets the
+magnification steps, `textSize()` sets how big transcribed writing is (smaller on a
+desktop so more fits, larger on a phone), and the `Math.min(760, vw * 0.92)` in
+`openScroll` sets how wide a scroll opens.
 
 ---
 
@@ -258,6 +278,7 @@ entries/              your entries, and a .txt of each one's words — the panel
 assets/               rendered wall, shelf, scrolls, rolls, paper, icons, share card
 assets/pdfjs/         Mozilla's pdf.js, for drawing PDF pages (Apache 2.0)
 assets/fonts/         Cormorant Garamond, Caveat, Architects Daughter (OFL)
+assets/tesseract/     the on-device reader, for when Google is busy (Apache 2.0)
 entries.json          last-ditch fallback listing; unused in normal operation
 tools/                the Python that renders assets/, plus the old Drive relay
 ```
