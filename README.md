@@ -74,7 +74,7 @@ Tap the title five times, and then:
 | The page | Choose a photograph or a PDF. On a phone this offers your camera roll and Files. Choosing it starts the reading straight away. |
 | Dated | Defaults to today. This is the date inked down the scroll and what sorts the shelf. |
 | A word | Optional. `morning` becomes `2026-08-17-morning.jpg`. Spaces and punctuation are tidied automatically. |
-| Transcript | What the model read. **Fix it here before publishing** — this is the version people see. *read it again* re-runs it. |
+| Transcript | What the model read, presented on a miniature unrolled scroll with the same paper, handwriting face, size, spacing, and padding as the published view. **Fix it here before publishing** — this is the version people see. *read it again* re-runs it. |
 
 Publish two things on the same date and the second quietly becomes `-2`. Nothing
 overwrites anything.
@@ -89,9 +89,9 @@ changes. Saving creates a normal Git commit, so simultaneous changes are rejecte
 instead of silently overwritten. Visitors and browsers without the saved token never
 see the editing controls.
 
-The five most recent transcript edits appear in a quiet **Recently revised** line below
-the shelves. Those timestamps come from the Git commits, so there is no separate edit
-log to keep in sync.
+The latest Git commit timestamp appears as **Last edited** at the bottom of that scroll.
+Transcript URLs include GitHub's revision SHA, so browser and raw-file caches cannot
+resurrect an older version after reloading or opening the site on another device.
 
 ### Reading the handwriting
 
@@ -163,8 +163,7 @@ stutters. Opening the same entry again is instant — the last three documents y
 looked at stay drawn. A PDF also begins downloading the moment your finger or cursor
 lands on its scroll, before you've even tapped.
 
-Keep them under about 25 MB. Tap the page when it's open to zoom in — that works on
-PDF pages too.
+Keep them under about 25 MB.
 
 ### HEIC
 
@@ -187,11 +186,6 @@ unlabelled scroll is a filename asking to be fixed.
 - **Tap a scroll** — it lifts off the shelf and unrolls, as far as the words go and no
   further. It opens large enough to read without doing anything else, and the text can
   be selected, copied, and found with the browser's own search.
-- **Tap anywhere** — steps closer: normal → half again → two and a bit, then back to
-  normal. It zooms around the spot you tapped, so you can walk across a page by
-  tapping the bit you want. When you're in close, the page pans in both directions.
-- **Pinch as much as you like.** A two-finger gesture is left alone, and won't be
-  mistaken for a tap when you let go.
 - **Unread scrolls nudge gently.** Reading is remembered only in that browser. The
   animation stops as soon as the scroll is opened and is disabled when reduced motion
   is requested.
@@ -290,10 +284,9 @@ Layout knobs are in the `:root` block at the top of `index.html`:
 | `--ink` | the colour of the date written on each roll |
 
 There are exactly as many shelves as it takes to hold the scrolls — one more appears
-when a row fills up. Three more knobs sit in the script: `ZOOMS` near `setZoom` sets the
-magnification steps, `textSize()` sets how big transcribed writing is (smaller on a
-desktop so more fits, larger on a phone), and the `Math.min(760, vw * 0.92)` in
-`openScroll` sets how wide a scroll opens.
+when a row fills up. Two more knobs sit in the script: `textSize()` sets how big
+transcribed writing is (smaller on a desktop so more fits, larger on a phone), and the
+`Math.min(760, vw * 0.92)` in `openScroll` sets how wide a scroll opens.
 
 ---
 

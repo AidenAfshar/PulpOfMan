@@ -243,8 +243,7 @@ main{ flex:1 0 auto; padding-bottom:clamp(24px,9vh,110px); }
   content:""; position:absolute; inset:0; pointer-events:none;
   background:linear-gradient(to bottom, rgba(64,52,32,.30), rgba(64,52,32,0) 30px);
 }
-#open .stack{ width:100%; max-width:none; cursor:zoom-in; transition:width .38s ease; }
-#open.far .stack{ cursor:zoom-out; }
+#open .stack{ width:100%; max-width:none; }
 #open .stack img, #open .stack canvas{ display:block; width:100%; height:auto; }
 #open .stack .text{
   font-family:"Architects Daughter","Bradley Hand",cursive;
@@ -253,9 +252,15 @@ main{ flex:1 0 auto; padding-bottom:clamp(24px,9vh,110px); }
   padding:clamp(20px, 4.2%, 44px) clamp(20px, 5%, 50px);
   white-space:pre-wrap; word-break:break-word;
   text-shadow:0 .5px 0 rgba(255,255,255,.25);
-  cursor:zoom-in; -webkit-user-select:text; user-select:text;
+  -webkit-user-select:text; user-select:text;
 }
-#open.far .stack .text{ cursor:zoom-out; }
+#open .stack .last-edited{
+  margin-top:2.4em; padding-top:.8em;
+  border-top:1px solid rgba(43,51,80,.16);
+  font-family:"Cormorant Garamond", Georgia, serif;
+  font-size:.78em; line-height:1.35; letter-spacing:.08em;
+  text-align:right; color:rgba(43,51,80,.55);
+}
 #open .stack canvas + canvas{ border-top:1px solid rgba(96,82,54,.20); }  /* fold between pages */
 #open.editing .stack{ cursor:default; }
 #open .stack .scroll-editor{
@@ -305,27 +310,12 @@ main{ flex:1 0 auto; padding-bottom:clamp(24px,9vh,110px); }
 #shut:hover{ background:rgba(30,25,20,.8); transform:scale(1.06); }
 #shut svg{ display:block; margin:auto; }
 
-/* ── recent revisions, quietly noted below the shelves ───── */
-#recentEdits{
-  width:min(760px, calc(100% - 44px)); margin:0 auto clamp(34px,7vh,76px);
-  padding-top:18px; border-top:1px solid rgba(222,210,180,.15);
-  color:rgba(222,210,180,.58); text-align:center;
-}
-#recentEdits h2{
-  margin:0 0 9px; font-size:13px; font-weight:400;
-  letter-spacing:.18em; text-transform:uppercase;
-}
-#recentEdits ul{ list-style:none; margin:0; padding:0; }
-#recentEdits li{ display:inline; font-size:14px; line-height:1.7; }
-#recentEdits li + li::before{ content:" · "; opacity:.45; padding:0 4px; }
-#recentEdits time{ opacity:.68; }
-
 /* ── the hidden door: five taps on the title ───────────────── */
 #gate{ position:fixed; inset:0; z-index:40; display:none; align-items:center; justify-content:center; padding:20px; }
 #gate.on{ display:flex; }
 #gate .veil{ position:absolute; inset:0; background:rgba(7,6,5,.88); backdrop-filter:blur(5px); }
 #gate .leaf{
-  position:relative; width:min(430px, 92vw);
+  position:relative; width:min(620px, 94vw);
   max-height:calc(100vh - 40px); overflow:auto;
   padding:30px 28px 24px;
   background:#e9e1cb url(assets/paper.jpg) repeat; background-size:220px;
@@ -353,6 +343,28 @@ main{ flex:1 0 auto; padding-bottom:clamp(24px,9vh,110px); }
   border:none; border-bottom:1.5px solid rgba(43,51,80,.42); border-radius:2px;
 }
 #gate textarea:focus{ outline:none; border-bottom-color:#2b3350; background:rgba(255,255,255,.62); }
+#gate .draft-scroll{
+  margin:8px 0 4px; filter:drop-shadow(0 12px 18px rgba(50,39,23,.22));
+}
+#gate .draft-scroll .draft-rod{
+  position:relative; height:18px; z-index:2;
+  background:url(assets/rod-body.png) repeat-x left center/auto 100%;
+}
+#gate .draft-scroll .draft-rod::before, #gate .draft-scroll .draft-rod::after{
+  content:""; position:absolute; top:0; width:7px; height:100%;
+  background:url(assets/rod-end.png) no-repeat center/100% 100%;
+}
+#gate .draft-scroll .draft-rod::before{ left:-7px; transform:scaleX(-1); }
+#gate .draft-scroll .draft-rod::after{ right:-7px; }
+#gate .draft-scroll .draft-rod.bottom{ filter:brightness(.9); }
+#gate .draft-scroll textarea{
+  display:block; min-height:300px; max-height:48vh; margin:0; padding:30px 5% 34px;
+  resize:vertical; border:0; border-radius:0; outline:0;
+  background:#e9e1cb url(assets/paper.jpg) repeat; background-size:220px;
+  box-shadow:inset 7px 0 16px -9px rgba(70,58,36,.55), inset -7px 0 16px -9px rgba(70,58,36,.55);
+  font-size:17px; line-height:1.62; text-shadow:0 .5px 0 rgba(255,255,255,.25);
+}
+#gate .draft-scroll textarea:focus{ border:0; background:#e9e1cb url(assets/paper.jpg) repeat; background-size:220px; }
 #gate button{
   margin-top:22px; width:100%; padding:11px;
   font-family:"Cormorant Garamond", Georgia, serif; font-size:16px;
@@ -380,6 +392,7 @@ h1{ cursor:default; }
   .scroll{ height:calc(var(--h) * .78); }
   .scroll .date{ font-size:13px; }
   .feather{ width:36px; height:96px; margin-left:-14px; }
+  #gate .draft-scroll textarea{ min-height:270px; font-size:19px; }
 }
 </style>
 </head>
@@ -391,10 +404,6 @@ h1{ cursor:default; }
 
 <header><h1>A Pulp Of Man</h1></header>
 <main><div id="shelves"></div></main>
-<footer id="recentEdits" hidden aria-live="polite">
-  <h2>Recently revised</h2>
-  <ul></ul>
-</footer>
 
 <div id="stage" aria-hidden="true">
   <div id="scrim"></div>
@@ -452,8 +461,12 @@ h1{ cursor:default; }
       <label for="gNote">A word for the filename (optional)</label>
       <input id="gNote" type="text" spellcheck="false" placeholder="morning">
       <label for="gText">Transcript <span class="forget" id="gRead">read it again</span></label>
-      <textarea id="gText" rows="9" spellcheck="true"
-                placeholder="Choose a page and the words will appear here to be corrected."></textarea>
+      <div class="draft-scroll">
+        <div class="draft-rod top"></div>
+        <textarea id="gText" rows="11" spellcheck="true"
+                  placeholder="Choose a page and the words will appear here to be corrected."></textarea>
+        <div class="draft-rod bottom"></div>
+      </div>
       <button id="gPost">Publish</button>
       <div class="say" id="sayPost"></div>
     </div>
@@ -569,7 +582,12 @@ async function fromGitHub(){
   if(!Array.isArray(j)) throw new Error("github: unexpected reply");
   const files = j.filter(f => f.type === "file");
   const transcripts = {};
-  files.forEach(f => { if(/\.txt$/i.test(f.name)) transcripts[f.name] = f.download_url; });
+  // The SHA makes each revision a distinct URL, bypassing raw-file and browser
+  // caches so an edit survives reloads and appears immediately on other devices.
+  files.forEach(f => {
+    if(/\.txt$/i.test(f.name))
+      transcripts[f.name] = f.download_url + (f.download_url.includes('?') ? '&' : '?') + "rev=" + f.sha;
+  });
   return pairUp(files.filter(f => FILE_RE.test(f.name))
                      .map(f => makeEntry(f.name, [f.download_url])), transcripts);
 }
@@ -598,55 +616,36 @@ async function loadEntries(){
   return [];
 }
 
-/* Git itself is the edit log: transcript updates use a distinct commit message,
-   so the public footer can show recent revisions without another mutable file. */
-let recentEditItems = [];
-function displayName(name){
-  const d = dateFrom(name);
-  const tail = name.replace(/^\d{4}-\d{2}-\d{2}-?/, '').replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ');
-  return d ? d.label + (tail ? ` — ${tail}` : '') : name;
-}
-function renderRecentEdits(items){
-  recentEditItems = items.slice(0, 5);
-  const foot = document.getElementById('recentEdits');
-  const list = foot.querySelector('ul');
-  list.textContent = "";
-  recentEditItems.forEach(edit=>{
-    const li = document.createElement('li');
-    const name = document.createElement('span');
-    name.textContent = displayName(edit.name);
-    const time = document.createElement('time');
-    const when = new Date(edit.at);
-    time.dateTime = Number.isNaN(when.valueOf()) ? "" : when.toISOString();
-    time.textContent = Number.isNaN(when.valueOf()) ? "" : " " + new Intl.DateTimeFormat(undefined, {
-      month:"short", day:"numeric", year: when.getFullYear() === new Date().getFullYear() ? undefined : "numeric"
-    }).format(when);
-    li.append(name, time);
-    list.appendChild(li);
-  });
-  foot.hidden = !recentEditItems.length;
+/* Edit commits are permanent metadata. Their newest timestamp is written at the
+   foot of the corresponding scroll, rather than in a separate site-wide list. */
+const editDates = new Map();
+function editedLabel(name){
+  const when = new Date(editDates.get(name));
+  if(Number.isNaN(when.valueOf())) return "";
+  return "Last edited " + new Intl.DateTimeFormat(undefined, {
+    month:"short", day:"numeric", year:"numeric", hour:"numeric", minute:"2-digit"
+  }).format(when);
 }
 function noteRecentEdit(name, at){
-  renderRecentEdits([{name, at}, ...recentEditItems.filter(x=>x.name !== name)]);
+  editDates.set(name, at);
 }
-async function loadRecentEdits(){
+async function loadEditDates(){
   const {user, repo, branch, dir} = SOURCE;
   if(!user || /^YOUR-/.test(user)) return;
   const headers = {Accept:"application/vnd.github+json"};
   if(token) headers.Authorization = "Bearer " + token;
   try{
-    const r = await fetch(`https://api.github.com/repos/${user}/${repo}/commits?sha=${encodeURIComponent(branch)}&per_page=30`,
+    const r = await fetch(`https://api.github.com/repos/${user}/${repo}/commits?sha=${encodeURIComponent(branch)}&per_page=100`,
                           {headers, cache:"no-store"});
     if(!r.ok) throw new Error("github " + r.status);
     const commits = await r.json();
     const prefix = `edit ${dir}/`;
-    const edits = commits.map(c=>{
+    commits.forEach(c=>{
       const msg = String(c.commit && c.commit.message || "").split("\n")[0];
-      if(!msg.startsWith(prefix) || !/\.txt$/i.test(msg)) return null;
-      return {name: msg.slice(prefix.length).replace(/\.txt$/i, ""),
-              at: c.commit.author && c.commit.author.date};
-    }).filter(Boolean);
-    renderRecentEdits(edits);
+      if(!msg.startsWith(prefix) || !/\.txt$/i.test(msg)) return;
+      const name = msg.slice(prefix.length).replace(/\.txt$/i, "");
+      if(!editDates.has(name)) editDates.set(name, c.commit.author && c.commit.author.date);
+    });
   }catch(err){ console.warn("[pulp] edit history →", err.message); }
 }
 
@@ -896,6 +895,13 @@ async function buildContent(entry, W, mine){
         const box = document.createElement('div');
         box.className = "text";
         box.textContent = words;
+        const edited = editedLabel(entry.name);
+        if(edited){
+          const stamp = document.createElement('div');
+          stamp.className = "last-edited";
+          stamp.textContent = edited;
+          box.appendChild(stamp);
+        }
         stack.style.fontSize = textSize() + "px";
 
         // Measure at the width it will END at. The scroll is still in flight and
@@ -955,7 +961,8 @@ function fitOpenedContent(ratio){
 async function refreshOpenedContent(entry){
   const mine = gen;
   const W = openEl.getBoundingClientRect().width || Math.min(760, innerWidth * .92);
-  resetZoom();
+  stack.style.width = "100%"; stack.style.fontSize = "";
+  sheet.scrollLeft = 0;
   const ratio = await buildContent(entry, W, mine);
   if(mine !== gen || currentEntry !== entry) return;
   fitOpenedContent(ratio);
@@ -1035,16 +1042,17 @@ function openScroll(entry, el){
   const mine = ++gen;
   const r  = el.getBoundingClientRect();
   const vw = innerWidth, vh = innerHeight;
-  const W  = Math.min(760, vw * 0.92);   // big enough to read without zooming
+  const W  = Math.min(760, vw * 0.92);   // the final, stable reading width
 
-  openEl.classList.remove('flying','unrolled','far');
+  openEl.classList.remove('flying','unrolled');
   openEl.style.left  = r.left + 'px';
   openEl.style.top   = r.top  + 'px';
   openEl.style.width = r.width + 'px';
   sheet.style.height = '0px';
   sheet.scrollTop = 0;
   resetScrollEditor();
-  resetZoom();
+  stack.style.width = "100%"; stack.style.fontSize = "";
+  sheet.scrollLeft = 0;
   stage.classList.add('on');
   stage.setAttribute('aria-hidden','false');
 
@@ -1081,7 +1089,7 @@ function closeScroll(){
   busy = true;
   const el = current;
   resetScrollEditor();
-  openEl.classList.remove('unrolled','far');
+  openEl.classList.remove('unrolled');
   sheet.style.height = '0px';
   setTimeout(()=>{
     const r = el.getBoundingClientRect();
@@ -1094,52 +1102,9 @@ function closeScroll(){
   }, 620);
 }
 
-/* ── zoom: tap the page to step closer, once more to come back ──
-   Nothing here closes the scroll — that is the X's job — so you can
-   tap about freely without losing your place.                    */
-const ZOOMS = [1, 1.6, 2.4];
 function textSize(){                // denser on a desktop, larger in the hand
   return innerWidth < 640 ? 19.5 : 17;
 }
-let zoomAt = 0;
-
-function setZoom(next, x, y){
-  const box = sheet.getBoundingClientRect();
-  // where is the finger, as a fraction of the whole page?
-  const fx = (sheet.scrollLeft + (x - box.left)) / Math.max(sheet.scrollWidth, 1);
-  const fy = (sheet.scrollTop  + (y - box.top )) / Math.max(sheet.scrollHeight, 1);
-
-  zoomAt = next;
-  applyZoom();
-
-  requestAnimationFrame(()=>{        // hold that spot under the finger
-    sheet.scrollLeft = fx * sheet.scrollWidth  - (x - box.left);
-    sheet.scrollTop  = fy * sheet.scrollHeight - (y - box.top);
-  });
-}
-function applyZoom(){
-  const z = ZOOMS[zoomAt];
-  if(stack.firstElementChild && stack.firstElementChild.classList.contains('text')){
-    stack.style.width = "100%";                 // words reflow; make them bigger instead
-    stack.style.fontSize = (textSize() * z) + "px";
-  }else{
-    stack.style.fontSize = "";
-    stack.style.width = (z * 100) + "%";
-  }
-  openEl.classList.toggle('far', zoomAt === ZOOMS.length - 1);
-}
-function resetZoom(){
-  zoomAt = 0;
-  stack.style.width = "100%";
-  stack.style.fontSize = "";
-  openEl.classList.remove('far');
-  sheet.scrollLeft = 0;
-}
-
-stage.addEventListener('click', e=>{
-  if(busy || !current || pinching || e.target.closest('#shut, #scrollTools, .scroll-editor')) return;
-  setZoom((zoomAt + 1) % ZOOMS.length, e.clientX, e.clientY);
-});
 document.getElementById('shut').addEventListener('click', e=>{
   e.stopPropagation(); closeScroll();
 });
@@ -1163,23 +1128,11 @@ function relayout(){
   openEl.style.width = W + 'px';
   openEl.style.left  = Math.round((vw - W) / 2) + 'px';
   if(stack.firstElementChild && stack.firstElementChild.classList.contains('text'))
-    stack.style.fontSize = (textSize() * ZOOMS[zoomAt]) + "px";
+    stack.style.fontSize = textSize() + "px";
   const H = Math.min(stack.scrollHeight || stack.offsetHeight, vh - 160);
   openEl.style.top = Math.round(Math.max(26, (vh - (H + 56)) / 2)) + 'px';
   sheet.style.height = Math.round(H) + 'px';
 }
-
-/* and a two-finger gesture must not land as a tap-to-zoom afterwards */
-let pinching = false, pinchOff = 0;
-addEventListener('touchstart', e=>{
-  if(e.touches.length > 1){ pinching = true; clearTimeout(pinchOff); }
-}, {passive:true});
-addEventListener('touchend', e=>{
-  if(e.touches.length === 0){
-    clearTimeout(pinchOff);
-    pinchOff = setTimeout(()=>{ pinching = false; }, 450);
-  }
-}, {passive:true});
 
 /* ══════════════════════════════════════════════════════════════
    THE HIDDEN DOOR
@@ -1694,12 +1647,11 @@ document.getElementById('gPost').addEventListener('click', async ()=>{
 });
 
 /* ── go ───────────────────────────────────────────────────── */
-loadEntries().then(list=>{
+Promise.all([loadEditDates(), loadEntries()]).then(([, list])=>{
   render(list);
   requestAnimationFrame(()=>{ drawPlanks(); document.body.classList.add('ready'); });
   addEventListener('load', drawPlanks);
 });
-loadRecentEdits();
 </script>
 </body>
 </html>
