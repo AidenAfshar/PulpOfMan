@@ -34,21 +34,22 @@
 
 <!-- ═══════════════════════════════════════════════════════════════════
      A PULP OF MAN
-     Entries are photographs of handwriting, named  YYYY-MM-DD-anything.jpg
-     and dropped into a Google Drive folder. Paste the address of your
-     Apps Script relay below (see tools/drive-relay.gs) and you are done.
-     The GitHub lines are a fallback, used only if Drive can't be reached.
+     Entries are photographs or PDFs of handwriting, named
+     YYYY-MM-DD-anything.jpg, living in the entries/ folder of the repo.
+
+     To add one: tap the title five times quickly. Nothing about that
+     door is published — see THE HIDDEN DOOR near the foot of this file.
      ═══════════════════════════════════════════════════════════════ -->
 <script>
   const SOURCE = {
-    // ── Google Drive (the main source) ──
-    drive:  "https://script.google.com/macros/s/AKfycbyGoFX46KmaCV951vjBySHz7fSpJ3nzTl2K2ubbi7AmDgv7wevHyXEap8x7aKUXT245/exec",                       // your Apps Script Web app URL, ending in /exec
+    // ── the GitHub folder your entries live in ──
+    user:   "AidenAfshar",
+    repo:   "PulpOfMan",
+    branch: "master",
+    dir:    "entries",
 
-    // ── GitHub folder (fallback; leave as-is if you aren't using it) ──
-    user:   "YOUR-GITHUB-USERNAME",
-    repo:   "a-pulp-of-man",  
-    branch: "main",
-    dir:    "entries"
+    // ── Google Drive (optional; leave empty and it isn't used) ──
+    drive:  ""                        // an Apps Script Web app URL ending in /exec
   };
 </script>
 
@@ -217,6 +218,46 @@ main{ flex:1 0 auto; padding-bottom:clamp(24px,9vh,110px); }
 #open .stack img, #open .stack canvas{ display:block; width:100%; height:auto; }
 #open .stack canvas + canvas{ border-top:1px solid rgba(96,82,54,.20); }  /* fold between pages */
 
+/* ── the hidden door: five taps on the title ───────────────── */
+#gate{ position:fixed; inset:0; z-index:40; display:none; align-items:center; justify-content:center; padding:20px; }
+#gate.on{ display:flex; }
+#gate .veil{ position:absolute; inset:0; background:rgba(7,6,5,.88); backdrop-filter:blur(5px); }
+#gate .leaf{
+  position:relative; width:min(430px, 92vw);
+  padding:30px 28px 24px;
+  background:#e9e1cb url(assets/paper.jpg) repeat; background-size:220px;
+  box-shadow:0 26px 54px rgba(0,0,0,.75);
+  color:#2b3350;
+  font-family:"Cormorant Garamond", Georgia, serif;
+}
+#gate h2{
+  margin:0 0 18px; font-weight:400; font-size:19px;
+  letter-spacing:.16em; text-transform:uppercase; opacity:.72;
+}
+#gate label{ display:block; font-size:15px; letter-spacing:.05em; opacity:.72; margin:14px 0 5px; }
+#gate input[type=text], #gate input[type=password], #gate input[type=date], #gate input[type=file]{
+  width:100%; padding:9px 10px;
+  font-family:"Caveat","Segoe Script",cursive; font-size:20px; color:#2b3350;
+  background:rgba(255,255,255,.42); border:none;
+  border-bottom:1.5px solid rgba(43,51,80,.42); border-radius:2px;
+}
+#gate input:focus{ outline:none; border-bottom-color:#2b3350; background:rgba(255,255,255,.62); }
+#gate input[type=file]{ font-family:inherit; font-size:15px; }
+#gate button{
+  margin-top:22px; width:100%; padding:11px;
+  font-family:"Cormorant Garamond", Georgia, serif; font-size:16px;
+  letter-spacing:.22em; text-transform:uppercase;
+  color:#efe7d3; background:#2b3350; border:none; border-radius:2px; cursor:pointer;
+}
+#gate button:disabled{ opacity:.45; cursor:default; }
+#gate .say{ margin-top:14px; font-size:15px; min-height:20px; letter-spacing:.03em; }
+#gate .say.bad{ color:#8c2f28; }
+#gate .hint{ margin-top:16px; font-size:13px; opacity:.5; line-height:1.45; }
+#gate .forget{ float:right; font-size:13px; opacity:.45; cursor:pointer; text-decoration:underline; }
+#gate .step{ display:none; }
+#gate .step.on{ display:block; }
+h1{ cursor:default; }
+
 @media (prefers-reduced-motion: reduce){
   #open.flying, #open .sheet, .scroll, .feather{ transition-duration:.001s !important; animation:none !important; }
 }
@@ -238,6 +279,45 @@ main{ flex:1 0 auto; padding-bottom:clamp(24px,9vh,110px); }
     <div class="sheet"><div class="stack"></div></div>
     <div class="rod bottom"></div>
   </figure>
+</div>
+
+<!-- opens only after five quick taps on the title -->
+<div id="gate" aria-hidden="true">
+  <div class="veil"></div>
+  <div class="leaf">
+
+    <div class="step" id="stepSetup">
+      <h2>First, the key</h2>
+      <label for="gToken">GitHub token (fine-grained, Contents: read &amp; write)</label>
+      <input id="gToken" type="password" autocomplete="off" spellcheck="false">
+      <label for="gPinNew">Choose a PIN for this device</label>
+      <input id="gPinNew" type="password" inputmode="numeric" autocomplete="off">
+      <button id="gSave">Remember on this device</button>
+      <p class="hint">The token is encrypted with your PIN and kept only in this
+        browser. It is never written into the site, so nothing secret is published.</p>
+      <div class="say" id="saySetup"></div>
+    </div>
+
+    <div class="step" id="stepPin">
+      <h2>PIN <span class="forget" id="gForget">forget this device</span></h2>
+      <input id="gPin" type="password" inputmode="numeric" autocomplete="off" autofocus>
+      <button id="gUnlock">Unlock</button>
+      <div class="say" id="sayPin"></div>
+    </div>
+
+    <div class="step" id="stepPost">
+      <h2>New entry</h2>
+      <label for="gFile">The page — photograph or PDF</label>
+      <input id="gFile" type="file" accept="image/*,application/pdf">
+      <label for="gDate">Dated</label>
+      <input id="gDate" type="date">
+      <label for="gNote">A word for the filename (optional)</label>
+      <input id="gNote" type="text" spellcheck="false" placeholder="morning">
+      <button id="gPost">Publish</button>
+      <div class="say" id="sayPost"></div>
+    </div>
+
+  </div>
 </div>
 
 <script>
@@ -306,18 +386,12 @@ function driveUrls(id){
            `https://drive.google.com/uc?export=view&id=${id}` ];
 }
 
-function makeEntry(name, urls, kind, id, resourceKey){
+function makeEntry(name, urls, kind, id){
   const d = dateFrom(name);
-  return {
-    name,
-    urls,
-    id,
-    resourceKey,
-    kind: kind || (/\.pdf$/i.test(name) ? "pdf" : "image"),
-    key: d && d.key,
-    label: d ? d.label : "",
-    today: !!d && d.key === todayKey
-  };
+  return { name, urls, id,
+           kind: kind || (/\.pdf$/i.test(name) ? "pdf" : "image"),
+           key: d && d.key, label: d ? d.label : "",
+           today: !!d && d.key === todayKey };
 }
 
 async function fromDrive(){
@@ -328,14 +402,17 @@ async function fromDrive(){
   if(j && j.ok === false) throw new Error(j.error || "relay error");
   return (j.entries || [])
     .filter(f => f && f.name && (f.id || f.url))
-    .map(f => makeEntry(f.name,f.url ? [f.url] : driveUrls(f.id),f.kind,f.id,f.resourceKey));
+    .map(f => makeEntry(f.name, f.url ? [f.url] : driveUrls(f.id), f.kind, f.id));
 }
 
 async function fromGitHub(){
   const {user, repo, branch, dir} = SOURCE;
   if(!user || /^YOUR-/.test(user)) return [];
+  const head = {Accept:"application/vnd.github+json"};
+  if(token) head.Authorization = "Bearer " + token;   // unlocked: a far higher rate limit
   const r = await fetch(`https://api.github.com/repos/${user}/${repo}/contents/${dir}?ref=${branch}`,
-                        {headers:{Accept:"application/vnd.github+json"}});
+                        {headers: head, cache:"no-store"});
+  if(r.status === 404) return [];                     // no entries folder yet — an empty shelf
   if(!r.ok) throw new Error("github " + r.status);
   const j = await r.json();
   if(!Array.isArray(j)) throw new Error("github: unexpected reply");
@@ -432,6 +509,7 @@ const stage  = document.getElementById('stage');
 const openEl = document.getElementById('open');
 const sheet  = openEl.querySelector('.sheet');
 const stack  = openEl.querySelector('.stack');
+let token = null;              // the GitHub token, only after unlocking
 let current = null, busy = false, gen = 0;   // gen: which open is the live one
 
 /* ── a photograph: try each of Google's addresses in turn ──── */
@@ -471,15 +549,7 @@ async function pdfBytes(entry){
   if(entry.id && SOURCE.drive){
     // Drive won't hand raw bytes to a browser, so the relay passes them through
     const sep = SOURCE.drive.indexOf('?') === -1 ? '?' : '&';
-    let url =
-    SOURCE.drive +
-    sep +
-    "file=" +
-    encodeURIComponent(entry.id);
-    if (entry.resourceKey) {
-    url += "&key=" + encodeURIComponent(entry.resourceKey);
-    }
-    const r = await fetch(url);
+    const r = await fetch(SOURCE.drive + sep + "file=" + encodeURIComponent(entry.id));
     if(!r.ok) throw new Error("relay " + r.status);
     const j = await r.json();
     if(!j.ok) throw new Error(j.error || "relay error");
@@ -590,6 +660,170 @@ openEl.querySelectorAll('.rod').forEach(r=>r.addEventListener('click', closeScro
 sheet.addEventListener('click', ()=>{ if(!busy) openEl.classList.toggle('zoomed'); });
 addEventListener('keydown', e=>{ if(e.key==='Escape') closeScroll(); });
 addEventListener('resize', ()=>{ if(current) closeScroll(); });
+
+/* ══════════════════════════════════════════════════════════════
+   THE HIDDEN DOOR
+   Five quick taps on the title. Your GitHub token is sealed with a
+   PIN and kept in this browser only — it is never written into the
+   site, so the published files hold no secret at all.
+   Needs https (or localhost); browsers withhold crypto elsewhere.
+   ══════════════════════════════════════════════════════════════ */
+const VAULT = "pulp.key";
+
+const gate = document.getElementById('gate');
+const steps = { setup:'stepSetup', pin:'stepPin', post:'stepPost' };
+function step(which){
+  Object.entries(steps).forEach(([k,id])=>
+    document.getElementById(id).classList.toggle('on', k === which));
+}
+function say(id, text, bad){
+  const el = document.getElementById(id);
+  el.textContent = text; el.classList.toggle('bad', !!bad);
+}
+
+/* ── sealing the token with the PIN ── */
+const enc = new TextEncoder(), dec = new TextDecoder();
+async function pinKey(pin, salt){
+  const base = await crypto.subtle.importKey("raw", enc.encode(pin), "PBKDF2", false, ["deriveKey"]);
+  return crypto.subtle.deriveKey(
+    {name:"PBKDF2", salt, iterations:250000, hash:"SHA-256"},
+    base, {name:"AES-GCM", length:256}, false, ["encrypt","decrypt"]);
+}
+async function seal(pin, secret){
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const iv   = crypto.getRandomValues(new Uint8Array(12));
+  const ct = new Uint8Array(await crypto.subtle.encrypt(
+    {name:"AES-GCM", iv}, await pinKey(pin, salt), enc.encode(secret)));
+  localStorage.setItem(VAULT, JSON.stringify({s:[...salt], i:[...iv], c:[...ct]}));
+}
+async function unseal(pin){
+  const raw = localStorage.getItem(VAULT);
+  if(!raw) return null;
+  const {s,i,c} = JSON.parse(raw);
+  const pt = await crypto.subtle.decrypt({name:"AES-GCM", iv:new Uint8Array(i)},
+                await pinKey(pin, new Uint8Array(s)), new Uint8Array(c));
+  return dec.decode(pt);
+}
+
+/* ── five taps ── */
+(function(){
+  const h1 = document.querySelector('h1');
+  let taps = [];
+  h1.addEventListener('click', ()=>{
+    const now = Date.now();
+    taps = taps.filter(t => now - t < 2500);
+    taps.push(now);
+    if(taps.length >= 5){ taps = []; openGate(); }
+  });
+})();
+
+function openGate(){
+  gate.classList.add('on');
+  gate.setAttribute('aria-hidden','false');
+  if(token) { step('post'); prefill(); }
+  else if(localStorage.getItem(VAULT)){ step('pin'); focus('gPin'); }
+  else { step('setup'); focus('gToken'); }
+}
+function closeGate(){
+  gate.classList.remove('on');
+  gate.setAttribute('aria-hidden','true');
+  ['saySetup','sayPin','sayPost'].forEach(id => say(id, ""));
+}
+function focus(id){ setTimeout(()=>document.getElementById(id).focus(), 60); }
+function prefill(){
+  const d = new Date();
+  document.getElementById('gDate').value =
+    `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+gate.querySelector('.veil').addEventListener('click', closeGate);
+addEventListener('keydown', e=>{ if(e.key === 'Escape' && gate.classList.contains('on')) closeGate(); });
+
+document.getElementById('gSave').addEventListener('click', async ()=>{
+  const t = document.getElementById('gToken').value.trim();
+  const p = document.getElementById('gPinNew').value;
+  if(t.length < 20) return say('saySetup', "That doesn't look like a token.", true);
+  if(p.length < 4)  return say('saySetup', "Give the PIN at least four characters.", true);
+  try{
+    await seal(p, t);
+    token = t;
+    document.getElementById('gToken').value = "";
+    document.getElementById('gPinNew').value = "";
+    step('post'); prefill();
+  }catch(err){ say('saySetup', String(err.message || err), true); }
+});
+
+document.getElementById('gUnlock').addEventListener('click', unlock);
+document.getElementById('gPin').addEventListener('keydown', e=>{ if(e.key === 'Enter') unlock(); });
+async function unlock(){
+  const p = document.getElementById('gPin').value;
+  try{
+    token = await unseal(p);
+    document.getElementById('gPin').value = "";
+    say('sayPin', "");
+    step('post'); prefill();
+  }catch(err){ say('sayPin', "Not that one.", true); }
+}
+
+document.getElementById('gForget').addEventListener('click', ()=>{
+  localStorage.removeItem(VAULT); token = null;
+  step('setup'); focus('gToken');
+});
+
+/* ── publishing ── */
+function fileToBase64(file){
+  return new Promise((res, rej)=>{
+    const fr = new FileReader();
+    fr.onload  = ()=> res(String(fr.result).split(',')[1]);
+    fr.onerror = ()=> rej(new Error("could not read that file"));
+    fr.readAsDataURL(file);
+  });
+}
+
+async function putFile(path, b64){
+  const url = `https://api.github.com/repos/${SOURCE.user}/${SOURCE.repo}/contents/${path}`;
+  const r = await fetch(url, {
+    method: "PUT",
+    headers: { Authorization: "Bearer " + token, Accept: "application/vnd.github+json" },
+    body: JSON.stringify({ message: "add " + path, content: b64, branch: SOURCE.branch })
+  });
+  if(r.ok) return true;
+  if(r.status === 422) return false;                       // that name is taken
+  const e = await r.json().catch(()=>({}));
+  throw new Error(e.message || ("GitHub said " + r.status));
+}
+
+document.getElementById('gPost').addEventListener('click', async ()=>{
+  const btn  = document.getElementById('gPost');
+  const file = document.getElementById('gFile').files[0];
+  const date = document.getElementById('gDate').value;
+  const note = document.getElementById('gNote').value.trim();
+  if(!file) return say('sayPost', "Choose the page first.", true);
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(date)) return say('sayPost', "Needs a date.", true);
+
+  const ext  = ((file.name.match(/\.[A-Za-z0-9]+$/) || [".jpg"])[0]).toLowerCase();
+  const slug = note ? "-" + note.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"") : "";
+
+  btn.disabled = true;
+  say('sayPost', "Sending…");
+  try{
+    const b64 = await fileToBase64(file);
+    let done = false;
+    for(let n = 0; n < 9 && !done; n++){
+      const tail = n ? `-${n+1}` : "";
+      done = await putFile(`${SOURCE.dir}/${date}${slug}${tail}${ext}`, b64);
+    }
+    if(!done) throw new Error("nine entries already share that name");
+    say('sayPost', "On the shelf.");
+    document.getElementById('gFile').value = "";
+    document.getElementById('gNote').value = "";
+    setTimeout(async ()=>{ closeGate(); render(await loadEntries()); }, 900);
+  }catch(err){
+    say('sayPost', String(err.message || err), true);
+  }finally{
+    btn.disabled = false;
+  }
+});
 
 /* ── go ───────────────────────────────────────────────────── */
 loadEntries().then(list=>{

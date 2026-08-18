@@ -1,165 +1,100 @@
 # A Pulp Of Man
 
-A shelf of scrolls at **pulpofman.com**. Each scroll is one handwritten page. Tap one
+A shelf of scrolls at **pulpofman.com**. Each scroll is one handwritten entry. Tap one
 and it lifts off the shelf and unrolls. Anything dated today wears a small blue
 feather.
 
-Entries live in a **Google Drive folder**. Publishing is: photograph or scan the page,
-put it in the folder, name it with the date. Photographs and PDFs both work — a
-multi-page PDF unrolls into one long scroll. No CMS, no build step, no database.
+Entries are photographs or PDFs sitting in the **`entries/` folder of this repo** —
+`AidenAfshar/PulpOfMan`, branch `master`. No second service, no sharing settings, no
+relay. If the site loads, the entries load.
+
+To publish, you don't go anywhere: **tap the title five times** and a door opens.
 
 ---
 
-## Setup
+## The hidden door
 
-Four parts. Do them in this order — the Drive half is the fiddly bit, so it's first,
-while you still have patience.
+Tap **A PULP OF MAN** five times quickly. A panel appears on parchment. The first time,
+it asks for a GitHub token and a PIN of your choosing; after that, just the PIN. Then
+you pick a file, confirm the date, and hit Publish. The scroll appears on the shelf a
+moment later.
 
-### Part 1 — Google Drive
+Nothing about this is visible to anyone else. The public site has no menu, no login
+link, no hint that the panel exists — five taps on a title is not something a visitor
+does by accident.
 
-A static web page can't hold a Google password, so a tiny script stands between them.
-It lists one folder and hands the site a plain list of filenames. It can't write,
-delete, or see anything outside that folder.
+### How the key is kept
 
-**1. Make the folder.**
-In Drive, create a folder — call it `Pulp Of Man`. Open it. The address bar reads
-`.../folders/1a2B3c4D5e6F7g8H`. **That tail is the folder ID.** Copy it.
+Your token is **encrypted with your PIN and stored only in that browser**
+(AES-GCM, key stretched from the PIN with 250,000 rounds of PBKDF2). It is never
+written into `index.html`, so nothing secret is ever published — anyone can read every
+byte of this repo and find no way in.
 
-**2. Share it.**
-Right-click the folder → **Share** → under *General access* choose
-**Anyone with the link**, role **Viewer**. This is what lets the browser actually
-display the photographs. The folder stays unlisted and unsearchable — only reachable
-by someone holding an exact file ID.
+The practical consequences:
 
-**3. Make the relay.**
-Go to **script.google.com** → **New project**. Delete everything in the editor and
-paste in the whole of `tools/drive-relay.gs` from this folder. Name the project
-`Pulp Of Man`. Put your folder ID into the `FOLDER_ID` line near the top. Save.
+- Each device you want to post from needs setting up once. Phone and laptop each get
+  their own copy.
+- Clearing your browser data forgets it. Set it up again; nothing is lost.
+- Someone who steals your unlocked phone could post to your blog. Nothing worse — the
+  token below is scoped to this one repository.
+- It needs **https**. On `pulpofman.com` that's automatic. Opening `index.html` by
+  double-clicking it on your Mac will not work, because browsers withhold the crypto
+  API from `file://` pages.
 
-**4. Check it before deploying.**
-In the toolbar, pick `test` from the function dropdown and press **Run**. Approve the
-permissions when asked — the "Google hasn't verified this app" screen is expected for
-a script you wrote yourself: **Advanced → Go to Pulp Of Man (unsafe)**. The Execution
-log should print `"ok":true` and a count. If it says `ok:false`, the folder ID is
-wrong.
+### Making the token
 
-**5. Deploy it.**
-**Deploy → New deployment →** click the gear → **Web app**.
+1. github.com → your avatar → **Settings** → **Developer settings** (very bottom of
+   the left column) → **Personal access tokens** → **Fine-grained tokens** →
+   **Generate new token**.
+2. Name it `Pulp Of Man`. Expiry: your call — a year is reasonable, and the site will
+   simply say GitHub refused when it lapses.
+3. **Repository access** → *Only select repositories* → **PulpOfMan**.
+4. **Permissions** → *Repository permissions* → **Contents** → **Read and write**.
+   That is the only one. Leave everything else alone.
+5. Generate, and copy the token. GitHub shows it exactly once.
+6. On the site, tap the title five times, paste it in, choose a PIN, save.
 
-| field | value |
+A fine-grained token scoped this way can do precisely one thing: read and write files
+in `PulpOfMan`. It cannot touch your other repositories, your account, or anything
+else.
+
+---
+
+## Publishing
+
+Tap the title five times → PIN → then:
+
+| field | what it does |
 |---|---|
-| Execute as | **Me** |
-| Who has access | **Anyone** |
+| The page | Choose a photograph or a PDF. On a phone this offers your camera roll and Files. |
+| Dated | Defaults to today. This is the date inked down the scroll and what sorts the shelf. |
+| A word | Optional. `morning` becomes `2026-08-17-morning.jpg`. Spaces and punctuation are tidied automatically. |
 
-That second one must be plain **Anyone**, *not* "Anyone with a Google account" —
-otherwise visitors get a login screen instead of your writing. Deploy, then copy the
-**Web app URL**. It ends in `/exec`.
-
-**6. Paste it into the site.**
-Near the top of `index.html`:
-
-```js
-const SOURCE = {
-  drive: "https://script.google.com/macros/s/AKfy…/exec",
-  ...
-};
-```
-
-### Part 2 — hosting
-
-The page itself still needs somewhere to live. GitHub Pages is free and fine.
-
-1. github.com → **New repository**, named `a-pulp-of-man`, **Public**.
-2. **Add file → Upload files**, drag in everything from this folder, commit.
-3. **Settings → Pages** → Source: **Deploy from a branch**, branch `main`, folder
-   `/ (root)`. Save.
-
-### Part 3 — pulpofman.com
-
-At your registrar's DNS settings, add:
-
-| Type | Name | Value |
-|---|---|---|
-| A | `@` | `185.199.108.153` |
-| A | `@` | `185.199.109.153` |
-| A | `@` | `185.199.110.153` |
-| A | `@` | `185.199.111.153` |
-| CNAME | `www` | `your-github-username.github.io` |
-
-Optionally add these four as `AAAA` records on `@` for IPv6:
-`2606:50c0:8000::153`, `2606:50c0:8001::153`, `2606:50c0:8002::153`,
-`2606:50c0:8003::153`.
-
-Then **Settings → Pages → Custom domain** should already read `pulpofman.com` — the
-`CNAME` file in this folder sets it. Wait until the **Enforce HTTPS** checkbox becomes
-available and tick it; that's what puts the padlock in the address bar. GitHub needs
-to see your DNS resolve first, usually minutes.
-
-**On Cloudflare:** keep both records **DNS only** (grey cloud) until the certificate
-has issued. The orange proxy during setup is the usual reason certificates never
-appear.
-
-**Expect a broken window.** Because `CNAME` ships in this folder, the old
-`username.github.io/a-pulp-of-man` address redirects to `pulpofman.com` from the
-moment you upload — so between uploading and DNS propagating, the site looks dead.
-That's normal.
-
-### Part 4 — your home screen
-
-Open `https://pulpofman.com` on your phone → Share → **Add to Home Screen**. It gets a
-proper icon and opens without browser chrome.
-
----
-
-## Publishing from your phone
-
-1. Photograph the page. Straight on, good light, cropped to the paper.
-2. Open the **Google Drive** app → your `Pulp Of Man` folder → **+** → **Upload** →
-   pick the photo.
-3. Long-press it → **Rename** → give it the date:
-
-```
-2026-08-17.jpg
-2026-08-17-morning.jpg      ← anything after the date is ignored
-2026-08-17-2.jpg            ← a second entry the same day
-```
-
-The shelf catches up within a minute or two — the relay holds its answer for sixty
-seconds, and browsers cache a little beyond that.
-
-### The one rule
-
-**The filename must carry `YYYY-MM-DD`.** That's the date inked down the scroll, and
-it's what sorts the shelf — newest at the top left. An entry dated today grows the
-feather on its own. This holds for PDFs exactly as for photographs.
-
-A file with no date, or a nonsense one like `2026-13-99`, still appears — bare, at the
-very end of the shelf. Nothing ever disappears silently; if you see an unlabelled
-scroll, that's a filename asking to be fixed.
+Publish two things on the same date and the second quietly becomes `-2`. Nothing
+overwrites anything.
 
 ### PDFs
 
-Drop a PDF in and it behaves like everything else — same naming rule, same place on
-the shelf. **Every page is drawn**, stacked end to end, so a four-page entry becomes a
-genuinely long scroll you keep pulling down. There's a faint fold where one page meets
-the next.
+A PDF behaves like everything else, except that **every page is drawn**, stacked end to
+end, so a four-page entry becomes a genuinely long scroll. There's a faint fold where
+one page meets the next.
 
-Two things to know. The relay hands the file to the browser, so keep scans **under
-12 MB** — the script refuses anything larger and says so in the console. And a PDF
-takes a moment longer to open than a photograph, because the pages are drawn one at a
-time; the scroll lifts off the shelf immediately and unrolls when they're ready.
-
-The sample dated **12 August** in `entries/` is a three-page PDF. If that one opens
-and scrolls, PDFs are working.
+Keep them under about 25 MB. Tap the page when it's open to zoom in — that works on
+PDF pages too.
 
 ### HEIC
 
-Upload whatever your phone shoots. Google renders HEIC as JPEG on the way out, so
-iPhone photos generally work with no conversion — which they didn't in the GitHub
-version. If a page ever refuses to appear, that's the first thing to suspect.
+Your iPhone's default format is `.heic`, which Safari shows but Chrome and Android do
+not. Either set **Settings → Camera → Formats → Most Compatible** so the phone shoots
+JPEG, or share the photo out of the Photos app rather than picking the original file —
+that converts it on the way.
 
-Around 1–2 MB per photo is plenty. The scroll shows the page about 560 pixels wide and
-lets you tap to zoom — which works on PDF pages too.
+### The naming rule, if you ever add files by hand
+
+**The filename must carry `YYYY-MM-DD`.** The panel does this for you, but if you drag
+files into `entries/` on GitHub or on your Mac, that's the rule. A file without a date
+still appears — bare, at the very end of the shelf. Nothing disappears silently; an
+unlabelled scroll is a filename asking to be fixed.
 
 ---
 
@@ -169,56 +104,79 @@ lets you tap to zoom — which works on PDF pages too.
 - **Tap the page** — zooms in, for handwriting that's gone small.
 - **Tap the dark surround, either roll, or press Esc** — it rolls back up.
 
-Nothing else on screen. No menu, no buttons, no footer.
+Nothing else on screen.
+
+---
+
+## Hosting
+
+1. The repo must be **Public**. GitHub Pages needs that on the free plan, and so does
+   reading `entries/` without a login.
+2. **Settings → Pages** → Source: **Deploy from a branch** → branch **`master`** →
+   folder `/ (root)`.
+3. **Settings → Pages → Custom domain** should read `pulpofman.com`; the `CNAME` file
+   sets it. Tick **Enforce HTTPS** once the checkbox becomes available — the hidden
+   door won't work without it.
+
+DNS at your registrar:
+
+| Type | Name | Value |
+|---|---|---|
+| A | `@` | `185.199.108.153` |
+| A | `@` | `185.199.109.153` |
+| A | `@` | `185.199.110.153` |
+| A | `@` | `185.199.111.153` |
+| CNAME | `www` | `aidenafshar.github.io` |
+
+On Cloudflare, keep those **DNS only** (grey cloud) until the certificate has issued.
 
 ---
 
 ## When something doesn't show up
 
-Open the site, then your browser's console (on a desktop: right-click → Inspect →
-Console). Anything the site couldn't do is logged there, prefixed `[pulp]`.
+Open the site, then the browser console (desktop: right-click → Inspect → Console).
+Anything that failed is logged there, prefixed `[pulp]`.
 
 | what you see | what it means |
 |---|---|
-| Shelf is empty, console says `fromDrive → relay 401/403` | The deployment's access isn't **Anyone**. Deploy → Manage deployments → edit → fix it. |
-| Console says `fromDrive → Exception: … getFolderById` | Wrong `FOLDER_ID` in the script. |
-| You edited the script but nothing changed | Apps Script serves the *deployed* version. Deploy → Manage deployments → pencil → **Version: New version** → Deploy. This catches everyone once. |
-| Scrolls appear but pages are blank when opened | The folder isn't shared **Anyone with the link → Viewer**. |
-| Console says `no address served` | Same cause — Google refused the image. Check sharing. |
-| A scroll has no date on it | Its filename has no `YYYY-MM-DD`. Rename it in Drive. |
-| A PDF opens blank, console says `Too large` | Over the 12 MB ceiling. Rescan at a lower resolution, or raise `MAX_PDF_MB` in the relay and redeploy. |
-| A PDF opens blank, console says `Not in the folder` | The file was moved out of the folder the relay watches. |
-| PDFs hang but photos are fine | `assets/pdfjs/` didn't get uploaded. It's 1.5 MB and easy to miss when dragging files in. |
+| Shelf empty, console says `fromGitHub → github 404` | Wrong `user`/`repo`/`branch` in `SOURCE` at the top of `index.html`, or there's no `entries/` folder yet. |
+| Shelf empty, console says `github 403` | You've made more than 60 anonymous requests in an hour from this network. Unlock the panel — once you do, the site uses your token and the ceiling rises to 5,000. |
+| Five taps do nothing | You're on `file://` or plain `http`. The panel needs https. |
+| Publish says `Resource not accessible` | The token lacks **Contents: Read and write**, or wasn't scoped to `PulpOfMan`. |
+| Publish says `Bad credentials` | The token expired or was pasted with a stray space. Tap *forget this device* and set it up again. |
+| Scrolls appear but pages are blank | The repo is private. Make it public. |
+| PDFs hang, photos are fine | `assets/pdfjs/` didn't get uploaded — 1.5 MB, easy to miss. |
 
-### The fallbacks
+---
 
-If Drive can't be reached at all, the site quietly tries the GitHub `entries/` folder,
-then `entries.json`. That's why the five sample scribbles are still in this folder —
-they're a safety net, not content. Delete `entries/`, `entries.json` and the GitHub
-lines in `SOURCE` once Drive is working, or leave them as a spare tyre.
+## About Google Drive
 
-Nothing is tracked. No cookies, no analytics, no third-party scripts beyond the two
-fonts — the PDF renderer is Mozilla's pdf.js, kept in `assets/pdfjs/` rather than
-pulled from a CDN, and only fetched the first time you open a PDF.
+The site can still read from a Drive folder if you ever want it to: put an Apps Script
+`/exec` URL in `SOURCE.drive` and it takes priority over the repo. `tools/drive-relay.gs`
+is still here for that.
+
+It isn't used now, and the reason is worth recording: Drive needed a public sharing
+toggle, a deployed script that goes stale unless you redeploy after every edit, and an
+access setting with two confusingly similar options. Three things that could quietly
+break, none of which you could see from the site. Publishing into the repo has none of
+those moving parts.
 
 ---
 
 ## The look, if you ever want to change it
 
-The cobblestone wall, the stone shelf and the eight scroll variants are rendered by
-one Python script rather than downloaded from anywhere.
+The cobblestone wall, the stone shelf and the eight scroll variants are rendered by one
+Python script rather than downloaded from anywhere.
 
 ```bash
 pip install numpy pillow
 python3 tools/render_assets.py
 ```
 
-Change `seed=7` in `cobblestone()` for a different wall; palette, mortar width and
-lamp direction are named constants near the top of each function. `make_samples.py`
-regenerates the placeholder handwriting; `social.py` re-renders the share card and
-home-screen icons from the live page.
+Change `seed=7` in `cobblestone()` for a different wall. `make_samples.py` regenerates
+placeholder handwriting; `social.py` re-renders the share card and home-screen icons.
 
-Layout knobs live in the `:root` block at the top of `index.html`:
+Layout knobs are in the `:root` block at the top of `index.html`:
 
 | variable | what it does |
 |---|---|
@@ -227,21 +185,17 @@ Layout knobs live in the `:root` block at the top of `index.html`:
 | `--sink` | how far onto the slab's top surface the scrolls stand |
 | `--ink` | the colour of the date written on each roll |
 
-Moving to a different address means changing it in three places: the `CNAME` file, the
-`og:`/`canonical` tags at the top of `index.html`, and the Pages setting.
-
 ---
 
 ## Files
 
 ```
-index.html            the whole site
-tools/drive-relay.gs  paste this into script.google.com — the Drive half
-CNAME                 pulpofman.com — this is what claims the domain
+index.html            the whole site, including the hidden door
+CNAME                 pulpofman.com
 site.webmanifest      name and icons for Add to Home Screen
+entries/              your entries — the panel writes here
 assets/               rendered wall, shelf, scrolls, rolls, paper, icons, share card
 assets/pdfjs/         Mozilla's pdf.js, for drawing PDF pages (Apache 2.0)
-entries/              fallback samples, only used if Drive is unreachable
-entries.json          last-ditch fallback listing
-tools/                the Python that renders assets/ and the sample pages
+entries.json          last-ditch fallback listing; unused in normal operation
+tools/                the Python that renders assets/, plus the old Drive relay
 ```
