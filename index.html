@@ -147,6 +147,13 @@ main{ flex:1 0 auto; padding-bottom:clamp(24px,9vh,110px); }
   cursor:pointer;
 }
 .slot:focus{ outline:none; }
+.slot.unread{ animation:unread-nudge 5.2s ease-in-out var(--nudge-delay, 0s) infinite; }
+@keyframes unread-nudge{
+  0%,78%,100%{ transform:translateY(0); }
+  84%{ transform:translateY(-7px); }
+  89%{ transform:translateY(0); }
+  93%{ transform:translateY(-3px); }
+}
 
 .scroll{
   position:relative;
@@ -265,12 +272,28 @@ main{ flex:1 0 auto; padding-bottom:clamp(24px,9vh,110px); }
 #shut:hover{ background:rgba(30,25,20,.8); transform:scale(1.06); }
 #shut svg{ display:block; margin:auto; }
 
+/* ── recent revisions, quietly noted below the shelves ───── */
+#recentEdits{
+  width:min(760px, calc(100% - 44px)); margin:0 auto clamp(34px,7vh,76px);
+  padding-top:18px; border-top:1px solid rgba(222,210,180,.15);
+  color:rgba(222,210,180,.58); text-align:center;
+}
+#recentEdits h2{
+  margin:0 0 9px; font-size:13px; font-weight:400;
+  letter-spacing:.18em; text-transform:uppercase;
+}
+#recentEdits ul{ list-style:none; margin:0; padding:0; }
+#recentEdits li{ display:inline; font-size:14px; line-height:1.7; }
+#recentEdits li + li::before{ content:" · "; opacity:.45; padding:0 4px; }
+#recentEdits time{ opacity:.68; }
+
 /* ── the hidden door: five taps on the title ───────────────── */
 #gate{ position:fixed; inset:0; z-index:40; display:none; align-items:center; justify-content:center; padding:20px; }
 #gate.on{ display:flex; }
 #gate .veil{ position:absolute; inset:0; background:rgba(7,6,5,.88); backdrop-filter:blur(5px); }
 #gate .leaf{
   position:relative; width:min(430px, 92vw);
+  max-height:calc(100vh - 40px); overflow:auto;
   padding:30px 28px 24px;
   background:#e9e1cb url(assets/paper.jpg) repeat; background-size:220px;
   box-shadow:0 26px 54px rgba(0,0,0,.75);
@@ -282,7 +305,7 @@ main{ flex:1 0 auto; padding-bottom:clamp(24px,9vh,110px); }
   letter-spacing:.16em; text-transform:uppercase; opacity:.72;
 }
 #gate label{ display:block; font-size:15px; letter-spacing:.05em; opacity:.72; margin:14px 0 5px; }
-#gate input[type=text], #gate input[type=password], #gate input[type=date], #gate input[type=file]{
+#gate input[type=text], #gate input[type=password], #gate input[type=date], #gate input[type=file], #gate select{
   width:100%; padding:9px 10px;
   font-family:"Caveat","Segoe Script",cursive; font-size:20px; color:#2b3350;
   background:rgba(255,255,255,.42); border:none;
@@ -290,6 +313,7 @@ main{ flex:1 0 auto; padding-bottom:clamp(24px,9vh,110px); }
 }
 #gate input:focus{ outline:none; border-bottom-color:#2b3350; background:rgba(255,255,255,.62); }
 #gate input[type=file]{ font-family:inherit; font-size:15px; }
+#gate select{ font-family:"Cormorant Garamond", Georgia, serif; font-size:17px; }
 #gate textarea{
   width:100%; padding:10px; resize:vertical;
   font-family:"Architects Daughter","Bradley Hand",cursive; font-size:16px; line-height:1.6;
@@ -310,10 +334,26 @@ main{ flex:1 0 auto; padding-bottom:clamp(24px,9vh,110px); }
 #gate .forget{ float:right; font-size:13px; opacity:.45; cursor:pointer; text-decoration:underline; }
 #gate .step{ display:none; }
 #gate .step.on{ display:block; }
+#gate .admin-tabs{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:0 0 18px; }
+#gate .admin-tabs button{
+  width:auto; margin:0; padding:8px 6px; font-size:13px; letter-spacing:.12em;
+  color:#2b3350; background:rgba(43,51,80,.10); border:1px solid rgba(43,51,80,.22);
+}
+#gate .admin-tabs button.on{ color:#efe7d3; background:#2b3350; }
 h1{ cursor:default; }
 
 @media (prefers-reduced-motion: reduce){
-  #open.flying, #open .sheet, .scroll, .feather{ transition-duration:.001s !important; animation:none !important; }
+  #open.flying, #open .sheet, .scroll, .feather, .slot.unread{ transition-duration:.001s !important; animation:none !important; }
+}
+
+@media (max-width:640px){
+  :root{ --rowH:222px; --base:51px; --sink:12px; --shelfH:80px; }
+  header{ padding-bottom:20px; }
+  #shelves{ padding-left:12px; padding-right:12px; }
+  .slot{ margin-left:5px !important; margin-right:5px !important; }
+  .scroll{ height:calc(var(--h) * .78); }
+  .scroll .date{ font-size:13px; }
+  .feather{ width:36px; height:96px; margin-left:-14px; }
 }
 </style>
 </head>
@@ -325,6 +365,10 @@ h1{ cursor:default; }
 
 <header><h1>A Pulp Of Man</h1></header>
 <main><div id="shelves"></div></main>
+<footer id="recentEdits" hidden aria-live="polite">
+  <h2>Recently revised</h2>
+  <ul></ul>
+</footer>
 
 <div id="stage" aria-hidden="true">
   <div id="scrim"></div>
@@ -350,29 +394,51 @@ h1{ cursor:default; }
       <h2>First, the key</h2>
       <label for="gToken">GitHub token (fine-grained, Contents: read &amp; write)</label>
       <input id="gToken" type="password" autocomplete="off" spellcheck="false" autofocus>
-      <label for="gGem">Google AI Studio key — optional, and only makes the reading better</label>
+      <label for="gGem">Google AI Studio key — needed for cursive handwriting</label>
       <input id="gGem" type="password" autocomplete="off" spellcheck="false">
       <button id="gSave">Remember on this device</button>
       <p class="hint">Kept in this browser only, and never written into the site — the
         published files hold no secret. Anyone using this browser can post, so set it up
-        on your own devices only. Without a Google key the handwriting is still read,
-        on this device, just less well.</p>
+        on your own devices only. Without a Google key the on-device reader can handle
+        print and very neat separated letters, but not flowing cursive.</p>
       <div class="say" id="saySetup"></div>
     </div>
 
     <div class="step" id="stepPost">
-      <h2>New entry <span class="forget" id="gForget">forget this device</span></h2>
-      <label for="gFile">The page — photograph or PDF</label>
-      <input id="gFile" type="file" accept="image/*,application/pdf">
-      <label for="gDate">Dated</label>
-      <input id="gDate" type="date">
-      <label for="gNote">A word for the filename (optional)</label>
-      <input id="gNote" type="text" spellcheck="false" placeholder="morning">
-      <label for="gText">Transcript <span class="forget" id="gRead">read it again</span></label>
-      <textarea id="gText" rows="9" spellcheck="true"
-                placeholder="Choose a page and the words will appear here to be corrected."></textarea>
-      <button id="gPost">Publish</button>
-      <div class="say" id="sayPost"></div>
+      <h2><span id="gModeTitle">New entry</span> <span class="forget" id="gForget">forget this device</span></h2>
+      <div class="admin-tabs" role="tablist" aria-label="Entry tools">
+        <button type="button" id="gNewTab" class="on" role="tab" aria-selected="true">New post</button>
+        <button type="button" id="gEditTab" role="tab" aria-selected="false">Edit old posts</button>
+      </div>
+      <div id="gNewPanel" role="tabpanel">
+        <div id="gVision">
+          <label for="gGemPost">Google AI Studio key — needed for cursive handwriting</label>
+          <input id="gGemPost" type="password" autocomplete="off" spellcheck="false">
+          <button type="button" id="gGemSave">Enable handwriting reader</button>
+          <p class="hint">Kept only in this browser. The on-device reader cannot reliably
+            read flowing cursive.</p>
+        </div>
+        <label for="gFile">The page — photograph or PDF</label>
+        <input id="gFile" type="file" accept="image/*,application/pdf">
+        <label for="gDate">Dated</label>
+        <input id="gDate" type="date">
+        <label for="gNote">A word for the filename (optional)</label>
+        <input id="gNote" type="text" spellcheck="false" placeholder="morning">
+        <label for="gText">Transcript <span class="forget" id="gRead">read it again</span></label>
+        <textarea id="gText" rows="9" spellcheck="true"
+                  placeholder="Choose a page and the words will appear here to be corrected."></textarea>
+        <button id="gPost">Publish</button>
+        <div class="say" id="sayPost"></div>
+      </div>
+      <div id="gEditPanel" role="tabpanel" hidden>
+        <label for="gEditEntry">Post</label>
+        <select id="gEditEntry"></select>
+        <label for="gEditText">Transcript</label>
+        <textarea id="gEditText" rows="12" spellcheck="true"
+                  placeholder="Choose a post to edit its transcript."></textarea>
+        <button type="button" id="gEditSave">Save edit</button>
+        <div class="say" id="sayEdit"></div>
+      </div>
     </div>
 
   </div>
@@ -515,19 +581,83 @@ async function loadEntries(){
   return [];
 }
 
+/* Git itself is the edit log: transcript updates use a distinct commit message,
+   so the public footer can show recent revisions without another mutable file. */
+let recentEditItems = [];
+function displayName(name){
+  const d = dateFrom(name);
+  const tail = name.replace(/^\d{4}-\d{2}-\d{2}-?/, '').replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ');
+  return d ? d.label + (tail ? ` — ${tail}` : '') : name;
+}
+function renderRecentEdits(items){
+  recentEditItems = items.slice(0, 5);
+  const foot = document.getElementById('recentEdits');
+  const list = foot.querySelector('ul');
+  list.textContent = "";
+  recentEditItems.forEach(edit=>{
+    const li = document.createElement('li');
+    const name = document.createElement('span');
+    name.textContent = displayName(edit.name);
+    const time = document.createElement('time');
+    const when = new Date(edit.at);
+    time.dateTime = Number.isNaN(when.valueOf()) ? "" : when.toISOString();
+    time.textContent = Number.isNaN(when.valueOf()) ? "" : " " + new Intl.DateTimeFormat(undefined, {
+      month:"short", day:"numeric", year: when.getFullYear() === new Date().getFullYear() ? undefined : "numeric"
+    }).format(when);
+    li.append(name, time);
+    list.appendChild(li);
+  });
+  foot.hidden = !recentEditItems.length;
+}
+function noteRecentEdit(name, at){
+  renderRecentEdits([{name, at}, ...recentEditItems.filter(x=>x.name !== name)]);
+}
+async function loadRecentEdits(){
+  const {user, repo, branch, dir} = SOURCE;
+  if(!user || /^YOUR-/.test(user)) return;
+  const headers = {Accept:"application/vnd.github+json"};
+  if(token) headers.Authorization = "Bearer " + token;
+  try{
+    const r = await fetch(`https://api.github.com/repos/${user}/${repo}/commits?sha=${encodeURIComponent(branch)}&per_page=30`,
+                          {headers, cache:"no-store"});
+    if(!r.ok) throw new Error("github " + r.status);
+    const commits = await r.json();
+    const prefix = `edit ${dir}/`;
+    const edits = commits.map(c=>{
+      const msg = String(c.commit && c.commit.message || "").split("\n")[0];
+      if(!msg.startsWith(prefix) || !/\.txt$/i.test(msg)) return null;
+      return {name: msg.slice(prefix.length).replace(/\.txt$/i, ""),
+              at: c.commit.author && c.commit.author.date};
+    }).filter(Boolean);
+    renderRecentEdits(edits);
+  }catch(err){ console.warn("[pulp] edit history →", err.message); }
+}
+
 /* ── build the shelf ──────────────────────────────────────── */
 const shelves = document.getElementById('shelves');
+const READ_KEY = "pulp.read.v1";
+let readEntries = new Set();
+try{ readEntries = new Set(JSON.parse(localStorage.getItem(READ_KEY) || "[]")); }catch(e){}
+function markRead(name){
+  if(readEntries.has(name)) return;
+  readEntries.add(name);
+  try{ localStorage.setItem(READ_KEY, JSON.stringify([...readEntries].slice(-500))); }catch(e){}
+}
+
+let shelfEntries = [];
 
 function render(entries){
   // newest first; anything whose filename carries no date goes to the very end
   entries.sort((a,b)=>
     (b.key||"").localeCompare(a.key||"") || a.name.localeCompare(b.name, undefined, {numeric:true}));
+  shelfEntries = entries;
   const rnd = mulberry32(90210);
   shelves.innerHTML = "";
   entries.forEach((e, i)=>{
     const slot = document.createElement('div');
-    slot.className = 'slot' + (e.today ? ' has-feather' : '');
+    slot.className = 'slot' + (e.today ? ' has-feather' : '') + (readEntries.has(e.name) ? '' : ' unread');
     slot.style.margin = `0 ${Math.round(7+rnd()*9)}px`;
+    slot.style.setProperty('--nudge-delay', (-rnd()*5.2).toFixed(2) + 's');
     slot.tabIndex = 0;
     slot.setAttribute('role','button');
     slot.setAttribute('aria-label', e.label || e.name);
@@ -776,6 +906,8 @@ async function buildContent(entry, W, mine){
 
 function openScroll(entry, el){
   if(busy || current) return;
+  markRead(entry.name);
+  el.parentElement.classList.remove('unread');
   busy = true; current = el; currentEntry = entry;
   const mine = ++gen;
   const r  = el.getBoundingClientRect();
@@ -966,14 +1098,61 @@ function openGate(){
 function closeGate(){
   gate.classList.remove('on');
   gate.setAttribute('aria-hidden','true');
-  ['saySetup','sayPost'].forEach(id => say(id, ""));
+  ['saySetup','sayPost','sayEdit'].forEach(id => say(id, ""));
 }
 function focus(id){ setTimeout(()=>document.getElementById(id).focus(), 60); }
 function prefill(){
   const d = new Date();
   document.getElementById('gDate').value =
     `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  document.getElementById('gVision').style.display = gemKey ? 'none' : '';
+  showAdminMode('new');
 }
+
+let editorLoad = 0;
+function showAdminMode(which){
+  const editing = which === 'edit';
+  document.getElementById('gNewPanel').hidden = editing;
+  document.getElementById('gEditPanel').hidden = !editing;
+  document.getElementById('gModeTitle').textContent = editing ? 'Edit entry' : 'New entry';
+  const newTab = document.getElementById('gNewTab');
+  const editTab = document.getElementById('gEditTab');
+  newTab.classList.toggle('on', !editing); newTab.setAttribute('aria-selected', String(!editing));
+  editTab.classList.toggle('on', editing); editTab.setAttribute('aria-selected', String(editing));
+  if(editing) prepareEditor();
+}
+async function loadEditorTranscript(){
+  const select = document.getElementById('gEditEntry');
+  const box = document.getElementById('gEditText');
+  const entry = shelfEntries.find(e=>e.name === select.value);
+  const mine = ++editorLoad;
+  box.disabled = true; box.value = entry ? "Loading…" : "";
+  say('sayEdit', entry && !entry.textUrl ? "This post has no transcript yet — you can add one." : "");
+  if(!entry){ box.disabled = false; return; }
+  try{
+    const words = entry.textUrl ? await transcriptOf(entry) : "";
+    if(mine === editorLoad) box.value = words;
+  }catch(err){
+    if(mine === editorLoad){ box.value = ""; say('sayEdit', "The existing transcript could not be loaded.", true); }
+  }finally{ if(mine === editorLoad) box.disabled = false; }
+}
+function prepareEditor(){
+  const select = document.getElementById('gEditEntry');
+  const previous = select.value;
+  select.textContent = "";
+  shelfEntries.forEach(entry=>{
+    const option = document.createElement('option');
+    option.value = entry.name; option.textContent = displayName(entry.name);
+    select.appendChild(option);
+  });
+  if(previous && shelfEntries.some(e=>e.name === previous)) select.value = previous;
+  document.getElementById('gEditSave').disabled = !shelfEntries.length;
+  loadEditorTranscript();
+}
+
+document.getElementById('gNewTab').addEventListener('click', ()=>showAdminMode('new'));
+document.getElementById('gEditTab').addEventListener('click', ()=>showAdminMode('edit'));
+document.getElementById('gEditEntry').addEventListener('change', loadEditorTranscript);
 
 gate.querySelector('.veil').addEventListener('click', closeGate);
 addEventListener('keydown', e=>{ if(e.key === 'Escape' && gate.classList.contains('on')) closeGate(); });
@@ -1001,6 +1180,20 @@ document.getElementById('gForget').addEventListener('click', ()=>{
   step('setup'); focus('gToken');
 });
 
+document.getElementById('gGemSave').addEventListener('click', ()=>{
+  const key = document.getElementById('gGemPost').value.trim();
+  if(key.length < 20) return say('sayPost', "That doesn't look like a Google AI Studio key.", true);
+  try{
+    localStorage.setItem(GEM_KEY, key);
+    localStorage.removeItem(GEM_MODEL);
+  }catch(err){ return say('sayPost', "This browser won't keep it — private window?", true); }
+  gemKey = key;
+  document.getElementById('gGemPost').value = "";
+  document.getElementById('gVision').style.display = 'none';
+  if(fileBox.files[0]) readChosenPage();
+  else say('sayPost', "Handwriting reader ready. Choose the page.");
+});
+
 /* ══════════════════════════════════════════════════════════════
    READING THE HANDWRITING
    Pages go to Google's vision model once, here, at publishing time.
@@ -1008,7 +1201,7 @@ document.getElementById('gForget').addEventListener('click', ()=>{
    every reader afterwards is just fetching a text file — no key, no
    cost, no waiting. Your key never leaves this browser.
    ══════════════════════════════════════════════════════════════ */
-const GEM_KEY = "pulp.gem", GEM_MODEL = "pulp.gemmodel.v2";
+const GEM_KEY = "pulp.gem", GEM_MODEL = "pulp.gemmodel.v3";
 const HAND_SAMPLE = "pulp.hand.sample.v1";
 let gemKey = null;
 try{ gemKey = localStorage.getItem(GEM_KEY) || null; }catch(e){}
@@ -1046,7 +1239,11 @@ async function geminiModels(){
     - (/lite|preview|exp|thinking|latest/i.test(n) ? 25 : 0)
     + (parseFloat((n.match(/(\d+\.\d+)/) || [0, "0"])[1]) || 0) * 10;
   usable.sort((a, b) => score(b) - score(a));
-  const shortlist = usable.slice(0, 4);          // spares, for when one is busy
+  // Keep the accurate model first, but always retain Flash alternatives. Some API
+  // keys can list Pro models they have no quota or regional access to.
+  const pro = usable.find(n => /pro/i.test(n));
+  const flash = usable.filter(n => /flash/i.test(n) && !/lite/i.test(n)).slice(0, 2);
+  const shortlist = [...new Set([pro, ...flash, ...usable].filter(Boolean))].slice(0, 6);
   try{ localStorage.setItem(GEM_MODEL, JSON.stringify(shortlist)); }catch(e){}
   return shortlist;
 }
@@ -1176,6 +1373,7 @@ function binarize(src){
 }
 
 let tessLib = null;
+let localReadConfidence = 0;
 function ensureTesseract(){
   if(tessLib) return Promise.resolve(tessLib);
   return new Promise((resolve, reject)=>{
@@ -1202,11 +1400,15 @@ async function readHere(pages, note){
       preserve_interword_spaces: "1"
     });
     const chunks = [];
+    const confidences = [];
     for(let i = 0; i < pages.length; i++){
       note && note(`Reading page ${i + 1} of ${pages.length} here…`);
       const {data} = await worker.recognize(binarize(pages[i]));
       chunks.push((data.text || "").replace(/[ \t]+\n/g, "\n").trim());
+      if(Number.isFinite(data.confidence)) confidences.push(data.confidence);
     }
+    localReadConfidence = confidences.length
+      ? confidences.reduce((a, b) => a + b, 0) / confidences.length : 0;
     return chunks.filter(Boolean).join("\n\n");
   } finally { await worker.terminate(); }
 }
@@ -1232,7 +1434,9 @@ async function callGemini(model, shots){
     try{ const e = await r.json(); if(e.error && e.error.message) msg = e.error.message; }catch(e){}
     if(r.status === 404){ try{ localStorage.removeItem(GEM_MODEL); }catch(e){} }
     const err = new Error(msg);
+    err.status = r.status;
     err.busy = (r.status === 503 || r.status === 429 || /overload|unavailable|exhaust/i.test(msg));
+    err.badKey = r.status === 401 || /api key (?:not valid|invalid)|invalid api key|key was reported/i.test(msg);
     throw err;
   }
   const j = await r.json();
@@ -1246,8 +1450,8 @@ async function readAtGoogle(pages, note){
   const models = await geminiModels();
   const shots = pages.map(asJpeg);
   let last = null;
-  for(let go = 0; go < 4; go++){
-    const model = models[Math.min(go, models.length - 1)];
+  for(let go = 0; go < models.length; go++){
+    const model = models[go];
     try{
       note && note(go ? `Trying ${model}…` : "Reading your handwriting…");
       const words = await callGemini(model, shots);
@@ -1255,10 +1459,16 @@ async function readAtGoogle(pages, note){
       last = new Error("nothing legible came back");
     }catch(err){
       last = err;
-      if(!err.busy) throw err;                       // a real error, not congestion
-      const wait = 700 * Math.pow(2, go);
-      note && note(`${model} is busy — waiting ${Math.round(wait/100)/10}s…`);
-      await new Promise(r => setTimeout(r, wait));
+      if(err.badKey) throw err;
+      // Access, quota, and retirement differ per model. Move on instead of throwing
+      // the whole vision attempt away because one listed model rejected this key.
+      if(err.busy){
+        const wait = Math.min(4000, 700 * Math.pow(1.7, go));
+        note && note(`${model} is busy — trying another reader in ${Math.round(wait/100)/10}s…`);
+        await new Promise(r => setTimeout(r, wait));
+      }else{
+        note && note(`${model} wasn't available — trying another reader…`);
+      }
     }
   }
   throw last || new Error("Google stayed busy");
@@ -1297,9 +1507,12 @@ async function readChosenPage(){
     }
 
     textBox.value = words;
+    const weakLocal = how === "this device" && localReadConfidence < 55;
     say('sayPost', words
-      ? `Read by ${how}.${short} Check it over — it will need a hand.`
-      : "Nothing legible came back. Publish the scan, or write it out yourself.", !words);
+      ? weakLocal
+        ? `The on-device reader could not read this cursive reliably (${Math.round(localReadConfidence)}% confidence). Add a Google AI Studio key for handwriting; the text below is only its rough attempt.${short}`
+        : `Read by ${how}.${short} Check it over — it will need a hand.`
+      : "Nothing legible came back. Publish the scan, or write it out yourself.", !words || weakLocal);
   }catch(err){
     say('sayPost', String(err.message || err), true);
   }
@@ -1330,6 +1543,53 @@ async function putFile(path, b64){
   const e = await r.json().catch(()=>({}));
   throw new Error(e.message || ("GitHub said " + r.status));
 }
+
+const githubPath = path => path.split('/').map(encodeURIComponent).join('/');
+async function editTranscript(entry, words){
+  const path = `${SOURCE.dir}/${entry.name}.txt`;
+  const url = `https://api.github.com/repos/${SOURCE.user}/${SOURCE.repo}/contents/${githubPath(path)}`;
+  const headers = {Authorization:"Bearer " + token, Accept:"application/vnd.github+json"};
+  const old = await fetch(url + "?ref=" + encodeURIComponent(SOURCE.branch), {headers, cache:"no-store"});
+  let sha = null;
+  if(old.ok){
+    const current = await old.json(); sha = current.sha;
+  }else if(old.status !== 404){
+    const problem = await old.json().catch(()=>({}));
+    throw new Error(problem.message || ("GitHub said " + old.status));
+  }
+  const body = {message:`edit ${path}`, content:textToBase64(words), branch:SOURCE.branch};
+  if(sha) body.sha = sha;
+  const saved = await fetch(url, {
+    method:"PUT", headers,
+    body:JSON.stringify(body)
+  });
+  if(!saved.ok){
+    const problem = await saved.json().catch(()=>({}));
+    if(saved.status === 409) throw new Error("That post changed elsewhere. Reload and try your edit again.");
+    throw new Error(problem.message || ("GitHub said " + saved.status));
+  }
+  return await saved.json();
+}
+
+document.getElementById('gEditSave').addEventListener('click', async ()=>{
+  const button = document.getElementById('gEditSave');
+  const entry = shelfEntries.find(e=>e.name === document.getElementById('gEditEntry').value);
+  const words = document.getElementById('gEditText').value.trim();
+  if(!token) return say('sayEdit', "This device is not signed in.", true);
+  if(!entry) return say('sayEdit', "Choose a post first.", true);
+  button.disabled = true; say('sayEdit', "Saving the edit…");
+  try{
+    const result = await editTranscript(entry, words);
+    const stamp = result.commit && result.commit.author && result.commit.author.date || new Date().toISOString();
+    const download = result.content && result.content.download_url;
+    entry.textUrl = (download || `https://raw.githubusercontent.com/${SOURCE.user}/${SOURCE.repo}/${SOURCE.branch}/${SOURCE.dir}/${entry.name}.txt`)
+                    + (download && download.includes('?') ? '&' : '?') + "v=" + Date.now();
+    textCache.set(entry.name, words);
+    noteRecentEdit(entry.name, stamp);
+    say('sayEdit', "Saved. The revised words are live on the shelf.");
+  }catch(err){ say('sayEdit', String(err.message || err), true); }
+  finally{ button.disabled = false; }
+});
 
 document.getElementById('gPost').addEventListener('click', async ()=>{
   const btn  = document.getElementById('gPost');
@@ -1378,6 +1638,7 @@ loadEntries().then(list=>{
   requestAnimationFrame(()=>{ drawPlanks(); document.body.classList.add('ready'); });
   addEventListener('load', drawPlanks);
 });
+loadRecentEdits();
 </script>
 </body>
 </html>

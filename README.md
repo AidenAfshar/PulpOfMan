@@ -79,11 +79,24 @@ Tap the title five times, and then:
 Publish two things on the same date and the second quietly becomes `-2`. Nothing
 overwrites anything.
 
+### Editing an old post
+
+On a browser that remembers the GitHub token, open the hidden door and choose **Edit
+old posts**. Pick an entry, revise its transcript, and press **Save edit**. The original
+photograph or PDF is never replaced; only its companion `.txt` file changes. Saving
+creates a normal Git commit, so simultaneous changes are rejected instead of silently
+overwritten.
+
+The five most recent transcript edits appear in a quiet **Recently revised** line below
+the shelves. Those timestamps come from the Git commits, so there is no separate edit
+log to keep in sync.
+
 ### Reading the handwriting
 
 Two engines, tried in that order, so a busy server can never stop you publishing.
 
-**1. Google, if you've given it a key.** The best reader by a distance. The reader
+**1. Google, if you've given it a key.** This is required for flowing cursive and is
+the best reader by a distance. The reader
 prefers the more accurate Pro models, preserves more detail from the page, and learns
 from the last single-page transcript you corrected and published. That one reference
 page and its correction stay in this browser and are sent with the next page only as
@@ -92,12 +105,17 @@ back *overloaded* — which it does, often — the site now waits and tries agai
 switches to a different model each time rather than hammering the same busy one. Four
 attempts across about ten seconds.
 
+If this browser was set up before the handwriting key was added, the posting form shows
+an **Enable handwriting reader** field. Adding the key there does not disturb the saved
+GitHub publishing token and immediately rereads a page that is already selected.
+
 **2. This device, always.** If Google is still refusing, or you never gave a key, the
 page reads the handwriting itself with Tesseract, which lives in `assets/tesseract/`.
 No key, no network, no queue, nothing that can be overloaded or rationed. About eight
 seconds a page.
 
-The status line tells you which one read it.
+The status line tells you which one read it. A low-confidence on-device result is
+explicitly marked as a rough failed attempt rather than presented as a successful read.
 
 **Be honest with yourself about the second one.** Tesseract was built for print, not
 cursive fountain pen. To give it the best chance the page is enlarged, turned grey, and
@@ -172,6 +190,11 @@ unlabelled scroll is a filename asking to be fixed.
   tapping the bit you want. When you're in close, the page pans in both directions.
 - **Pinch as much as you like.** A two-finger gesture is left alone, and won't be
   mistaken for a tap when you let go.
+- **Unread scrolls nudge gently.** Reading is remembered only in that browser. The
+  animation stops as soon as the scroll is opened and is disabled when reduced motion
+  is requested.
+- **Phones fit more scrolls per shelf.** The closed scrolls, shelf spacing, dates, and
+  feathers scale down below 640px; opened entries remain full reading size.
 - **The X in the top right, or Esc** — closes it. Only those two. Tapping the dark
   surround does nothing, so you can't lose your place by mis-aiming.
 
