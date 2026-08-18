@@ -81,11 +81,13 @@ overwrites anything.
 
 ### Editing an old post
 
-On a browser that remembers the GitHub token, open the hidden door and choose **Edit
-old posts**. Pick an entry, revise its transcript, and press **Save edit**. The original
-photograph or PDF is never replaced; only its companion `.txt` file changes. Saving
-creates a normal Git commit, so simultaneous changes are rejected instead of silently
-overwritten.
+On a browser that remembers the GitHub token, open any scroll normally. An **Edit**
+button appears directly on the opened scroll; scan-only posts say **Add words** instead.
+The scroll itself becomes the writing surface, with Save and Cancel controls at its top.
+The original photograph or PDF is never replaced; only its companion `.txt` file
+changes. Saving creates a normal Git commit, so simultaneous changes are rejected
+instead of silently overwritten. Visitors and browsers without the saved token never
+see the editing controls.
 
 The five most recent transcript edits appear in a quiet **Recently revised** line below
 the shelves. Those timestamps come from the Git commits, so there is no separate edit

@@ -257,6 +257,39 @@ main{ flex:1 0 auto; padding-bottom:clamp(24px,9vh,110px); }
 }
 #open.far .stack .text{ cursor:zoom-out; }
 #open .stack canvas + canvas{ border-top:1px solid rgba(96,82,54,.20); }  /* fold between pages */
+#open.editing .stack{ cursor:default; }
+#open .stack .scroll-editor{
+  display:block; width:100%; min-height:320px; margin:0; resize:none;
+  padding:clamp(44px, 7%, 66px) clamp(20px, 5%, 50px) clamp(24px, 5%, 50px);
+  border:0; outline:0; background:transparent;
+  font-family:"Architects Daughter","Bradley Hand",cursive;
+  font-size:1em; line-height:1.62; color:#242c46;
+  text-shadow:0 .5px 0 rgba(255,255,255,.25);
+}
+#scrollTools{
+  position:absolute; z-index:6; top:31px; right:12px;
+  display:flex; align-items:center; justify-content:flex-end; gap:7px;
+  max-width:calc(100% - 24px); pointer-events:auto;
+}
+#scrollTools[hidden], #scrollTools button[hidden]{ display:none; }
+#scrollTools button{
+  min-width:58px; padding:6px 9px;
+  border:1px solid rgba(43,51,80,.28); border-radius:2px;
+  background:rgba(233,225,203,.92); color:#2b3350;
+  font-family:"Cormorant Garamond", Georgia, serif; font-size:12px;
+  letter-spacing:.12em; text-transform:uppercase; cursor:pointer;
+  box-shadow:0 2px 8px rgba(30,24,16,.18);
+}
+#scrollTools button.primary{ color:#efe7d3; background:#2b3350; }
+#scrollTools button:disabled{ opacity:.48; cursor:default; }
+#scrollEditStatus{
+  overflow:hidden; max-width:240px; padding:5px 7px;
+  color:#2b3350; background:rgba(233,225,203,.92); border-radius:2px;
+  font-size:13px; line-height:1.2; text-overflow:ellipsis; white-space:nowrap;
+  box-shadow:0 2px 8px rgba(30,24,16,.14);
+}
+#scrollEditStatus:empty{ display:none; }
+#scrollEditStatus.bad{ color:#8c2f28; }
 
 #shut{
   position:absolute; z-index:30;
@@ -305,7 +338,7 @@ main{ flex:1 0 auto; padding-bottom:clamp(24px,9vh,110px); }
   letter-spacing:.16em; text-transform:uppercase; opacity:.72;
 }
 #gate label{ display:block; font-size:15px; letter-spacing:.05em; opacity:.72; margin:14px 0 5px; }
-#gate input[type=text], #gate input[type=password], #gate input[type=date], #gate input[type=file], #gate select{
+#gate input[type=text], #gate input[type=password], #gate input[type=date], #gate input[type=file]{
   width:100%; padding:9px 10px;
   font-family:"Caveat","Segoe Script",cursive; font-size:20px; color:#2b3350;
   background:rgba(255,255,255,.42); border:none;
@@ -313,7 +346,6 @@ main{ flex:1 0 auto; padding-bottom:clamp(24px,9vh,110px); }
 }
 #gate input:focus{ outline:none; border-bottom-color:#2b3350; background:rgba(255,255,255,.62); }
 #gate input[type=file]{ font-family:inherit; font-size:15px; }
-#gate select{ font-family:"Cormorant Garamond", Georgia, serif; font-size:17px; }
 #gate textarea{
   width:100%; padding:10px; resize:vertical;
   font-family:"Architects Daughter","Bradley Hand",cursive; font-size:16px; line-height:1.6;
@@ -334,12 +366,6 @@ main{ flex:1 0 auto; padding-bottom:clamp(24px,9vh,110px); }
 #gate .forget{ float:right; font-size:13px; opacity:.45; cursor:pointer; text-decoration:underline; }
 #gate .step{ display:none; }
 #gate .step.on{ display:block; }
-#gate .admin-tabs{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:0 0 18px; }
-#gate .admin-tabs button{
-  width:auto; margin:0; padding:8px 6px; font-size:13px; letter-spacing:.12em;
-  color:#2b3350; background:rgba(43,51,80,.10); border:1px solid rgba(43,51,80,.22);
-}
-#gate .admin-tabs button.on{ color:#efe7d3; background:#2b3350; }
 h1{ cursor:default; }
 
 @media (prefers-reduced-motion: reduce){
@@ -380,6 +406,12 @@ h1{ cursor:default; }
   </button>
   <figure id="open">
     <div class="rod top"></div>
+    <div id="scrollTools" hidden aria-label="Edit this scroll">
+      <span id="scrollEditStatus" aria-live="polite"></span>
+      <button type="button" id="scrollEdit">Edit</button>
+      <button type="button" id="scrollCancel" hidden>Cancel</button>
+      <button type="button" id="scrollSave" class="primary" hidden>Save</button>
+    </div>
     <div class="sheet"><div class="stack"></div></div>
     <div class="rod bottom"></div>
   </figure>
@@ -405,40 +437,25 @@ h1{ cursor:default; }
     </div>
 
     <div class="step" id="stepPost">
-      <h2><span id="gModeTitle">New entry</span> <span class="forget" id="gForget">forget this device</span></h2>
-      <div class="admin-tabs" role="tablist" aria-label="Entry tools">
-        <button type="button" id="gNewTab" class="on" role="tab" aria-selected="true">New post</button>
-        <button type="button" id="gEditTab" role="tab" aria-selected="false">Edit old posts</button>
+      <h2>New entry <span class="forget" id="gForget">forget this device</span></h2>
+      <div id="gVision">
+        <label for="gGemPost">Google AI Studio key — needed for cursive handwriting</label>
+        <input id="gGemPost" type="password" autocomplete="off" spellcheck="false">
+        <button type="button" id="gGemSave">Enable handwriting reader</button>
+        <p class="hint">Kept only in this browser. The on-device reader cannot reliably
+          read flowing cursive.</p>
       </div>
-      <div id="gNewPanel" role="tabpanel">
-        <div id="gVision">
-          <label for="gGemPost">Google AI Studio key — needed for cursive handwriting</label>
-          <input id="gGemPost" type="password" autocomplete="off" spellcheck="false">
-          <button type="button" id="gGemSave">Enable handwriting reader</button>
-          <p class="hint">Kept only in this browser. The on-device reader cannot reliably
-            read flowing cursive.</p>
-        </div>
-        <label for="gFile">The page — photograph or PDF</label>
-        <input id="gFile" type="file" accept="image/*,application/pdf">
-        <label for="gDate">Dated</label>
-        <input id="gDate" type="date">
-        <label for="gNote">A word for the filename (optional)</label>
-        <input id="gNote" type="text" spellcheck="false" placeholder="morning">
-        <label for="gText">Transcript <span class="forget" id="gRead">read it again</span></label>
-        <textarea id="gText" rows="9" spellcheck="true"
-                  placeholder="Choose a page and the words will appear here to be corrected."></textarea>
-        <button id="gPost">Publish</button>
-        <div class="say" id="sayPost"></div>
-      </div>
-      <div id="gEditPanel" role="tabpanel" hidden>
-        <label for="gEditEntry">Post</label>
-        <select id="gEditEntry"></select>
-        <label for="gEditText">Transcript</label>
-        <textarea id="gEditText" rows="12" spellcheck="true"
-                  placeholder="Choose a post to edit its transcript."></textarea>
-        <button type="button" id="gEditSave">Save edit</button>
-        <div class="say" id="sayEdit"></div>
-      </div>
+      <label for="gFile">The page — photograph or PDF</label>
+      <input id="gFile" type="file" accept="image/*,application/pdf">
+      <label for="gDate">Dated</label>
+      <input id="gDate" type="date">
+      <label for="gNote">A word for the filename (optional)</label>
+      <input id="gNote" type="text" spellcheck="false" placeholder="morning">
+      <label for="gText">Transcript <span class="forget" id="gRead">read it again</span></label>
+      <textarea id="gText" rows="9" spellcheck="true"
+                placeholder="Choose a page and the words will appear here to be corrected."></textarea>
+      <button id="gPost">Publish</button>
+      <div class="say" id="sayPost"></div>
     </div>
 
   </div>
@@ -644,13 +661,10 @@ function markRead(name){
   try{ localStorage.setItem(READ_KEY, JSON.stringify([...readEntries].slice(-500))); }catch(e){}
 }
 
-let shelfEntries = [];
-
 function render(entries){
   // newest first; anything whose filename carries no date goes to the very end
   entries.sort((a,b)=>
     (b.key||"").localeCompare(a.key||"") || a.name.localeCompare(b.name, undefined, {numeric:true}));
-  shelfEntries = entries;
   const rnd = mulberry32(90210);
   shelves.innerHTML = "";
   entries.forEach((e, i)=>{
@@ -727,8 +741,14 @@ const stage  = document.getElementById('stage');
 const openEl = document.getElementById('open');
 const sheet  = openEl.querySelector('.sheet');
 const stack  = openEl.querySelector('.stack');
+const scrollTools = document.getElementById('scrollTools');
+const scrollEdit = document.getElementById('scrollEdit');
+const scrollSave = document.getElementById('scrollSave');
+const scrollCancel = document.getElementById('scrollCancel');
+const scrollEditStatus = document.getElementById('scrollEditStatus');
 let token = null;              // the GitHub token, only after unlocking
 let current = null, currentEntry = null, busy = false, gen = 0;   // gen: which open is the live one
+let scrollEditing = false, scrollSaveBusy = false;
 
 /* ── a photograph: try each of Google's addresses in turn ──── */
 function loadImage(urls){
@@ -904,6 +924,109 @@ async function buildContent(entry, W, mine){
   return (im.naturalHeight || 1400) / (im.naturalWidth || 1000);
 }
 
+function scrollStatus(message, bad){
+  scrollEditStatus.textContent = message || "";
+  scrollEditStatus.classList.toggle('bad', !!bad);
+}
+function setScrollEditing(editing){
+  scrollEditing = editing;
+  openEl.classList.toggle('editing', editing);
+  scrollEdit.hidden = editing;
+  scrollCancel.hidden = !editing;
+  scrollSave.hidden = !editing;
+}
+function resetScrollEditor(){
+  scrollSaveBusy = false;
+  setScrollEditing(false);
+  scrollEdit.disabled = scrollSave.disabled = scrollCancel.disabled = false;
+  scrollStatus("");
+  scrollTools.hidden = true;
+}
+function sizeScrollEditor(editor){
+  editor.style.height = "auto";
+  editor.style.height = Math.max(sheet.clientHeight, editor.scrollHeight) + "px";
+}
+function fitOpenedContent(ratio){
+  const W = openEl.getBoundingClientRect().width || Math.min(760, innerWidth * .92);
+  const H = Math.min(W * ratio, innerHeight - 160);
+  openEl.style.top = Math.round(Math.max(26, (innerHeight - (H + 56))/2)) + 'px';
+  sheet.style.height = Math.round(H) + 'px';
+}
+async function refreshOpenedContent(entry){
+  const mine = gen;
+  const W = openEl.getBoundingClientRect().width || Math.min(760, innerWidth * .92);
+  resetZoom();
+  const ratio = await buildContent(entry, W, mine);
+  if(mine !== gen || currentEntry !== entry) return;
+  fitOpenedContent(ratio);
+}
+async function beginScrollEdit(){
+  const entry = currentEntry;
+  if(!entry || !token || scrollEditing) return;
+  scrollEdit.disabled = true; scrollStatus("Loading…");
+  try{
+    const words = entry.textUrl ? await transcriptOf(entry) : "";
+    if(currentEntry !== entry) return;
+    stack.textContent = "";
+    const editor = document.createElement('textarea');
+    editor.className = "scroll-editor";
+    editor.spellcheck = true;
+    editor.value = words;
+    editor.placeholder = "Write the transcript for this scroll…";
+    stack.style.fontSize = textSize() + "px";
+    stack.appendChild(editor);
+    setScrollEditing(true);
+    scrollStatus("");
+    sheet.scrollTop = 0; sheet.scrollLeft = 0;
+    sizeScrollEditor(editor);
+    editor.addEventListener('input', ()=>sizeScrollEditor(editor));
+    editor.focus();
+  }catch(err){ scrollStatus("Could not load the transcript.", true); }
+  finally{ scrollEdit.disabled = false; }
+}
+async function cancelScrollEdit(){
+  const entry = currentEntry;
+  if(!entry || scrollSaveBusy) return;
+  setScrollEditing(false); scrollStatus("");
+  await refreshOpenedContent(entry);
+}
+function applyEditedTranscript(entry, words, result){
+  const stamp = result.commit && result.commit.author && result.commit.author.date || new Date().toISOString();
+  const download = result.content && result.content.download_url;
+  entry.textUrl = (download || `https://raw.githubusercontent.com/${SOURCE.user}/${SOURCE.repo}/${SOURCE.branch}/${SOURCE.dir}/${entry.name}.txt`)
+                  + (download && download.includes('?') ? '&' : '?') + "v=" + Date.now();
+  textCache.set(entry.name, words);
+  noteRecentEdit(entry.name, stamp);
+}
+async function saveScrollEdit(){
+  const entry = currentEntry;
+  const editor = stack.querySelector('.scroll-editor');
+  if(!entry || !editor || scrollSaveBusy) return;
+  const words = editor.value.trim();
+  scrollSaveBusy = true;
+  scrollSave.disabled = scrollCancel.disabled = true;
+  scrollStatus("Saving…");
+  try{
+    const result = await editTranscript(entry, words);
+    applyEditedTranscript(entry, words, result);
+    if(currentEntry === entry){
+      setScrollEditing(false);
+      await refreshOpenedContent(entry);
+      scrollEdit.textContent = "Edit";
+      scrollStatus("Saved");
+      setTimeout(()=>{ if(currentEntry === entry && !scrollEditing) scrollStatus(""); }, 2200);
+    }
+  }catch(err){ scrollStatus(String(err.message || err), true); }
+  finally{
+    scrollSaveBusy = false;
+    scrollSave.disabled = scrollCancel.disabled = false;
+  }
+}
+
+scrollEdit.addEventListener('click', beginScrollEdit);
+scrollCancel.addEventListener('click', cancelScrollEdit);
+scrollSave.addEventListener('click', saveScrollEdit);
+
 function openScroll(entry, el){
   if(busy || current) return;
   markRead(entry.name);
@@ -920,6 +1043,7 @@ function openScroll(entry, el){
   openEl.style.width = r.width + 'px';
   sheet.style.height = '0px';
   sheet.scrollTop = 0;
+  resetScrollEditor();
   resetZoom();
   stage.classList.add('on');
   stage.setAttribute('aria-hidden','false');
@@ -947,13 +1071,16 @@ function openScroll(entry, el){
     openEl.style.top = Math.round(Math.max(26, (vh - (H + 56))/2)) + 'px';
     openEl.classList.add('unrolled');
     sheet.style.height = Math.round(H) + 'px';
+    scrollEdit.textContent = entry.textUrl ? "Edit" : "Add words";
+    scrollTools.hidden = !token;
   });
 }
 
 function closeScroll(){
-  if(busy || !current) return;
+  if(busy || scrollSaveBusy || !current) return;
   busy = true;
   const el = current;
+  resetScrollEditor();
   openEl.classList.remove('unrolled','far');
   sheet.style.height = '0px';
   setTimeout(()=>{
@@ -1010,7 +1137,7 @@ function resetZoom(){
 }
 
 stage.addEventListener('click', e=>{
-  if(busy || !current || pinching || e.target.closest('#shut')) return;
+  if(busy || !current || pinching || e.target.closest('#shut, #scrollTools, .scroll-editor')) return;
   setZoom((zoomAt + 1) % ZOOMS.length, e.clientX, e.clientY);
 });
 document.getElementById('shut').addEventListener('click', e=>{
@@ -1098,7 +1225,7 @@ function openGate(){
 function closeGate(){
   gate.classList.remove('on');
   gate.setAttribute('aria-hidden','true');
-  ['saySetup','sayPost','sayEdit'].forEach(id => say(id, ""));
+  ['saySetup','sayPost'].forEach(id => say(id, ""));
 }
 function focus(id){ setTimeout(()=>document.getElementById(id).focus(), 60); }
 function prefill(){
@@ -1106,53 +1233,7 @@ function prefill(){
   document.getElementById('gDate').value =
     `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   document.getElementById('gVision').style.display = gemKey ? 'none' : '';
-  showAdminMode('new');
 }
-
-let editorLoad = 0;
-function showAdminMode(which){
-  const editing = which === 'edit';
-  document.getElementById('gNewPanel').hidden = editing;
-  document.getElementById('gEditPanel').hidden = !editing;
-  document.getElementById('gModeTitle').textContent = editing ? 'Edit entry' : 'New entry';
-  const newTab = document.getElementById('gNewTab');
-  const editTab = document.getElementById('gEditTab');
-  newTab.classList.toggle('on', !editing); newTab.setAttribute('aria-selected', String(!editing));
-  editTab.classList.toggle('on', editing); editTab.setAttribute('aria-selected', String(editing));
-  if(editing) prepareEditor();
-}
-async function loadEditorTranscript(){
-  const select = document.getElementById('gEditEntry');
-  const box = document.getElementById('gEditText');
-  const entry = shelfEntries.find(e=>e.name === select.value);
-  const mine = ++editorLoad;
-  box.disabled = true; box.value = entry ? "Loading…" : "";
-  say('sayEdit', entry && !entry.textUrl ? "This post has no transcript yet — you can add one." : "");
-  if(!entry){ box.disabled = false; return; }
-  try{
-    const words = entry.textUrl ? await transcriptOf(entry) : "";
-    if(mine === editorLoad) box.value = words;
-  }catch(err){
-    if(mine === editorLoad){ box.value = ""; say('sayEdit', "The existing transcript could not be loaded.", true); }
-  }finally{ if(mine === editorLoad) box.disabled = false; }
-}
-function prepareEditor(){
-  const select = document.getElementById('gEditEntry');
-  const previous = select.value;
-  select.textContent = "";
-  shelfEntries.forEach(entry=>{
-    const option = document.createElement('option');
-    option.value = entry.name; option.textContent = displayName(entry.name);
-    select.appendChild(option);
-  });
-  if(previous && shelfEntries.some(e=>e.name === previous)) select.value = previous;
-  document.getElementById('gEditSave').disabled = !shelfEntries.length;
-  loadEditorTranscript();
-}
-
-document.getElementById('gNewTab').addEventListener('click', ()=>showAdminMode('new'));
-document.getElementById('gEditTab').addEventListener('click', ()=>showAdminMode('edit'));
-document.getElementById('gEditEntry').addEventListener('change', loadEditorTranscript);
 
 gate.querySelector('.veil').addEventListener('click', closeGate);
 addEventListener('keydown', e=>{ if(e.key === 'Escape' && gate.classList.contains('on')) closeGate(); });
@@ -1570,26 +1651,6 @@ async function editTranscript(entry, words){
   }
   return await saved.json();
 }
-
-document.getElementById('gEditSave').addEventListener('click', async ()=>{
-  const button = document.getElementById('gEditSave');
-  const entry = shelfEntries.find(e=>e.name === document.getElementById('gEditEntry').value);
-  const words = document.getElementById('gEditText').value.trim();
-  if(!token) return say('sayEdit', "This device is not signed in.", true);
-  if(!entry) return say('sayEdit', "Choose a post first.", true);
-  button.disabled = true; say('sayEdit', "Saving the edit…");
-  try{
-    const result = await editTranscript(entry, words);
-    const stamp = result.commit && result.commit.author && result.commit.author.date || new Date().toISOString();
-    const download = result.content && result.content.download_url;
-    entry.textUrl = (download || `https://raw.githubusercontent.com/${SOURCE.user}/${SOURCE.repo}/${SOURCE.branch}/${SOURCE.dir}/${entry.name}.txt`)
-                    + (download && download.includes('?') ? '&' : '?') + "v=" + Date.now();
-    textCache.set(entry.name, words);
-    noteRecentEdit(entry.name, stamp);
-    say('sayEdit', "Saved. The revised words are live on the shelf.");
-  }catch(err){ say('sayEdit', String(err.message || err), true); }
-  finally{ button.disabled = false; }
-});
 
 document.getElementById('gPost').addEventListener('click', async ()=>{
   const btn  = document.getElementById('gPost');
