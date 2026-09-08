@@ -32,8 +32,8 @@
 
 <!-- ═══════════════════════════════════════════════════════════════════
      A PULP OF MAN
-     Entries are photographs or PDFs of handwriting, named
-     YYYY-MM-DD-anything.jpg, living in the entries/ folder of the repo.
+     Entries are plain text files named YYYY-MM-DD-anything.txt, living
+     in the entries/ folder of the repo. The words are the entry.
 
      To add one: tap the title five times quickly. Nothing about that
      door is published — see THE HIDDEN DOOR near the foot of this file.
@@ -244,7 +244,6 @@ main{ flex:1 0 auto; padding-bottom:clamp(24px,9vh,110px); }
   background:linear-gradient(to bottom, rgba(64,52,32,.30), rgba(64,52,32,0) 30px);
 }
 #open .stack{ width:100%; max-width:none; }
-#open .stack img, #open .stack canvas{ display:block; width:100%; height:auto; }
 #open .stack .text{
   font-family:"Architects Daughter","Bradley Hand",cursive;
   font-size:1em; line-height:1.62;
@@ -261,7 +260,6 @@ main{ flex:1 0 auto; padding-bottom:clamp(24px,9vh,110px); }
   font-size:.78em; line-height:1.35; letter-spacing:.08em;
   text-align:right; color:rgba(43,51,80,.55);
 }
-#open .stack canvas + canvas{ border-top:1px solid rgba(96,82,54,.20); }  /* fold between pages */
 #open.editing .stack{ cursor:default; }
 #open .stack .scroll-editor{
   display:block; width:100%; min-height:320px; margin:0; resize:none;
@@ -328,14 +326,13 @@ main{ flex:1 0 auto; padding-bottom:clamp(24px,9vh,110px); }
   letter-spacing:.16em; text-transform:uppercase; opacity:.72;
 }
 #gate label{ display:block; font-size:15px; letter-spacing:.05em; opacity:.72; margin:14px 0 5px; }
-#gate input[type=text], #gate input[type=password], #gate input[type=date], #gate input[type=file]{
+#gate input[type=text], #gate input[type=password], #gate input[type=date]{
   width:100%; padding:9px 10px;
   font-family:"Caveat","Segoe Script",cursive; font-size:20px; color:#2b3350;
   background:rgba(255,255,255,.42); border:none;
   border-bottom:1.5px solid rgba(43,51,80,.42); border-radius:2px;
 }
 #gate input:focus{ outline:none; border-bottom-color:#2b3350; background:rgba(255,255,255,.62); }
-#gate input[type=file]{ font-family:inherit; font-size:15px; }
 #gate textarea{
   width:100%; padding:10px; resize:vertical;
   font-family:"Architects Daughter","Bradley Hand",cursive; font-size:16px; line-height:1.6;
@@ -435,36 +432,24 @@ h1{ cursor:default; }
       <h2>First, the key</h2>
       <label for="gToken">GitHub token (fine-grained, Contents: read &amp; write)</label>
       <input id="gToken" type="password" autocomplete="off" spellcheck="false" autofocus>
-      <label for="gGem">Google AI Studio key — needed for cursive handwriting</label>
-      <input id="gGem" type="password" autocomplete="off" spellcheck="false">
       <button id="gSave">Remember on this device</button>
       <p class="hint">Kept in this browser only, and never written into the site — the
         published files hold no secret. Anyone using this browser can post, so set it up
-        on your own devices only. Without a Google key the on-device reader can handle
-        print and very neat separated letters, but not flowing cursive.</p>
+        on your own devices only.</p>
       <div class="say" id="saySetup"></div>
     </div>
 
     <div class="step" id="stepPost">
       <h2>New entry <span class="forget" id="gForget">forget this device</span></h2>
-      <div id="gVision">
-        <label for="gGemPost">Google AI Studio key — needed for cursive handwriting</label>
-        <input id="gGemPost" type="password" autocomplete="off" spellcheck="false">
-        <button type="button" id="gGemSave">Enable handwriting reader</button>
-        <p class="hint">Kept only in this browser. The on-device reader cannot reliably
-          read flowing cursive.</p>
-      </div>
-      <label for="gFile">The page — photograph or PDF</label>
-      <input id="gFile" type="file" accept="image/*,application/pdf">
       <label for="gDate">Dated</label>
       <input id="gDate" type="date">
       <label for="gNote">A word for the filename (optional)</label>
       <input id="gNote" type="text" spellcheck="false" placeholder="morning">
-      <label for="gText">Transcript <span class="forget" id="gRead">read it again</span></label>
+      <label for="gText">The entry</label>
       <div class="draft-scroll">
         <div class="draft-rod top"></div>
         <textarea id="gText" rows="11" spellcheck="true"
-                  placeholder="Choose a page and the words will appear here to be corrected."></textarea>
+                  placeholder="Write it here."></textarea>
         <div class="draft-rod bottom"></div>
       </div>
       <button id="gPost">Publish</button>
@@ -513,7 +498,7 @@ const FEATHER = `
 </svg>`;
 
 /* ── entries ──────────────────────────────────────────────── */
-const FILE_RE = /\.(jpe?g|png|webp|gif|avif|heic|heif|pdf)$/i;
+const FILE_RE = /\.txt$/i;
 const MONTHS  = ["January","February","March","April","May","June",
                  "July","August","September","October","November","December"];
 const VARIANTS = 8;
@@ -523,7 +508,7 @@ const todayKey = (()=>{ const d=new Date();
 
 /* The date comes from the filename and nowhere else. Anchored at the start,
    so a stray number later in the name can never be mistaken for one; a date
-   further in still counts, so "scan 2026-08-17.jpg" works too. */
+   further in still counts, so "notes 2026-08-17.txt" works too. */
 function dateFrom(name){
   const m = name.match(/^(\d{4})-(\d{2})-(\d{2})/) || name.match(/(\d{4})-(\d{2})-(\d{2})/);
   if(!m) return null;
@@ -532,38 +517,20 @@ function dateFrom(name){
   return { key:`${m[1]}-${m[2]}-${m[3]}`, label:`${d} ${MONTHS[mo-1]} ${y}` };
 }
 
-/* Google serves the same picture from several addresses and quietly changes
-   which one it prefers, so keep a chain and let the browser fall down it. */
+/* Drive serves the same file from several addresses and quietly changes which
+   one it prefers, so keep a chain and let the browser fall down it. */
 function driveUrls(id){
   return [ `https://lh3.googleusercontent.com/d/${id}=w1600`,
            `https://drive.google.com/thumbnail?id=${id}&sz=w1600`,
            `https://drive.google.com/uc?export=view&id=${id}` ];
 }
 
-function makeEntry(name, urls, kind, id){
+/* An entry is a text file and nothing else: its words are the scroll. */
+function makeEntry(name, textUrl, extra){
   const d = dateFrom(name);
-  return { name, urls, id,
-           kind: kind || (/\.pdf$/i.test(name) ? "pdf" : "image"),
-           textUrl: null,                       // filled in by pairUp()
-           key: d && d.key, label: d ? d.label : "",
-           today: !!d && d.key === todayKey };
-}
-
-/* A transcript lives beside its scan as <same name>.txt. It is a companion,
-   not an entry of its own, so it never becomes a scroll. */
-function pairUp(entries, transcripts){
-  entries.forEach(e => {
-    const transcript = transcripts[e.name + ".txt"];
-    if(!transcript) return;
-    if(typeof transcript === "string"){
-      e.textUrl = transcript;
-    }else{
-      e.textUrl = transcript.url;
-      e.textEncoding = transcript.encoding;
-      e.textSha = transcript.sha;
-    }
-  });
-  return entries;
+  return Object.assign({ name, textUrl,
+                         key: d && d.key, label: d ? d.label : "",
+                         today: !!d && d.key === todayKey }, extra || {});
 }
 
 async function fromDrive(){
@@ -572,11 +539,9 @@ async function fromDrive(){
   if(!r.ok) throw new Error("relay " + r.status);
   const j = await r.json();
   if(j && j.ok === false) throw new Error(j.error || "relay error");
-  const all = (j.entries || []).filter(f => f && f.name && (f.id || f.url));
-  const transcripts = {};
-  all.forEach(f => { if(/\.txt$/i.test(f.name)) transcripts[f.name] = f.url || driveUrls(f.id)[0]; });
-  return pairUp(all.filter(f => FILE_RE.test(f.name))
-                   .map(f => makeEntry(f.name, f.url ? [f.url] : driveUrls(f.id), f.kind, f.id)), transcripts);
+  return (j.entries || [])
+    .filter(f => f && f.name && (f.id || f.url) && FILE_RE.test(f.name))
+    .map(f => makeEntry(f.name, f.url || driveUrls(f.id)[0], {id: f.id}));
 }
 
 async function fromGitHub(){
@@ -590,20 +555,12 @@ async function fromGitHub(){
   if(!r.ok) throw new Error("github " + r.status);
   const j = await r.json();
   if(!Array.isArray(j)) throw new Error("github: unexpected reply");
-  const files = j.filter(f => f.type === "file");
-  const transcripts = {};
   // Read the immutable Git blob, not raw.githubusercontent.com. Raw-file caches
   // can keep serving the old branch contents even after the edit commit exists.
-  files.forEach(f => {
-    if(/\.txt$/i.test(f.name))
-      transcripts[f.name] = {
-        url: f.git_url || `https://api.github.com/repos/${user}/${repo}/git/blobs/${f.sha}`,
-        encoding: "base64",
-        sha: f.sha
-      };
-  });
-  return pairUp(files.filter(f => FILE_RE.test(f.name))
-                     .map(f => makeEntry(f.name, [f.download_url])), transcripts);
+  return j.filter(f => f.type === "file" && FILE_RE.test(f.name))
+          .map(f => makeEntry(f.name,
+                 f.git_url || `https://api.github.com/repos/${user}/${repo}/git/blobs/${f.sha}`,
+                 {textEncoding: "base64", textSha: f.sha}));
 }
 
 async function fromManifest(){
@@ -614,9 +571,7 @@ async function fromManifest(){
   const list = (Array.isArray(j) ? j : j.entries || []).map(x => typeof x === "string"
     ? { name: x.split("/").pop(), url: x.includes("/") ? x : `${dir}/${x}` }
     : { name: x.name || x.file || "", url: x.url || `${dir}/${x.file || x.name}` });
-  const transcripts = {};
-  list.forEach(f => { if(/\.txt$/i.test(f.name)) transcripts[f.name] = f.url; });
-  return pairUp(list.filter(f => FILE_RE.test(f.name)).map(f => makeEntry(f.name, [f.url])), transcripts);
+  return list.filter(f => FILE_RE.test(f.name)).map(f => makeEntry(f.name, f.url));
 }
 
 /* Drive first; the others only if Drive is unset or unreachable. */
@@ -657,7 +612,7 @@ async function loadEditDates(){
     commits.forEach(c=>{
       const msg = String(c.commit && c.commit.message || "").split("\n")[0];
       if(!msg.startsWith(prefix) || !/\.txt$/i.test(msg)) return;
-      const name = msg.slice(prefix.length).replace(/\.txt$/i, "");
+      const name = msg.slice(prefix.length);
       if(!editDates.has(name)) editDates.set(name, c.commit.author && c.commit.author.date);
     });
   }catch(err){ console.warn("[pulp] edit history →", err.message); }
@@ -702,14 +657,6 @@ function render(entries){
 
     // a scroll's width is only known once its image decodes — re-lay the slabs then
     s.querySelector('img').addEventListener('load', schedulePlanks);
-
-    // start pulling a PDF down the moment a finger or cursor lands on it
-    if(e.kind === "pdf"){
-      const warm = ()=>{ pdfBytes(e).catch(()=>{}); slot.removeEventListener('pointerenter', warm);
-                         slot.removeEventListener('touchstart', warm); };
-      slot.addEventListener('pointerenter', warm);
-      slot.addEventListener('touchstart', warm, {passive:true});
-    }
 
     slot.appendChild(s);
     slot.addEventListener('click', ()=>openScroll(e, s));
@@ -763,128 +710,6 @@ let token = null;              // the GitHub token, only after unlocking
 let current = null, currentEntry = null, busy = false, gen = 0;   // gen: which open is the live one
 let scrollEditing = false, scrollSaveBusy = false;
 
-/* ── a photograph: try each of Google's addresses in turn ──── */
-function loadImage(urls){
-  return new Promise((resolve, reject)=>{
-    let i = 0;
-    const im = new Image();
-    im.decoding = "async";
-    im.onload  = ()=> resolve(im);
-    im.onerror = ()=> (++i < urls.length) ? im.src = urls[i]
-                                          : reject(new Error("no address served"));
-    im.src = urls[0];
-  });
-}
-
-/* ── a PDF: pdf.js, loaded only the first time one is opened ── */
-let pdfLib = null;
-function ensurePdfLib(){
-  if(pdfLib) return Promise.resolve(pdfLib);
-  return new Promise((resolve, reject)=>{
-    const s = document.createElement('script');
-    s.src = "assets/pdfjs/pdf.min.js";
-    s.onload = ()=>{
-      pdfLib = window.pdfjsLib;
-      pdfLib.GlobalWorkerOptions.workerSrc = "assets/pdfjs/pdf.worker.min.js";
-      resolve(pdfLib);
-    };
-    s.onerror = ()=> reject(new Error("pdf.js would not load"));
-    document.head.appendChild(s);
-  });
-}
-
-const pdfCache = new Map();
-async function pdfBytes(entry){
-  if(pdfCache.has(entry.name)) return pdfCache.get(entry.name);
-  let bytes;
-  if(entry.id && SOURCE.drive){
-    // Drive won't hand raw bytes to a browser, so the relay passes them through
-    const sep = SOURCE.drive.indexOf('?') === -1 ? '?' : '&';
-    const r = await fetch(SOURCE.drive + sep + "file=" + encodeURIComponent(entry.id));
-    if(!r.ok) throw new Error("relay " + r.status);
-    const j = await r.json();
-    if(!j.ok) throw new Error(j.error || "relay error");
-    const bin = atob(j.b64);
-    bytes = new Uint8Array(bin.length);
-    for(let i=0;i<bin.length;i++) bytes[i] = bin.charCodeAt(i);
-  }else{
-    const r = await fetch(entry.urls[0]);
-    if(!r.ok) throw new Error("pdf " + r.status);
-    bytes = new Uint8Array(await r.arrayBuffer());
-  }
-  pdfCache.set(entry.name, bytes);
-  return bytes;
-}
-
-/* Opened documents and their page shapes, so a second look costs nothing */
-const pdfDocs = new Map();
-
-async function pdfDoc(entry){
-  if(pdfDocs.has(entry.name)) return pdfDocs.get(entry.name);
-  const [lib, data] = await Promise.all([ensurePdfLib(), pdfBytes(entry)]);
-  const doc = await lib.getDocument({data: data.slice()}).promise;
-  const shape = [];                       // measuring a page is cheap; drawing is not
-  for(let n = 1; n <= doc.numPages; n++){
-    const vp = (await doc.getPage(n)).getViewport({scale:1});
-    shape.push({w: vp.width, h: vp.height});
-  }
-  const rec = {doc, shape};
-  pdfDocs.set(entry.name, rec);
-  return rec;
-}
-
-/* One page at a time, yielding between each, so scrolling never locks up */
-let painter = Promise.resolve();
-function paint(rec, job, W, dpr, mine){
-  painter = painter.then(async ()=>{
-    if(mine !== gen || job.cv.dataset.done) return;
-    const page = await rec.doc.getPage(job.n);
-    const vp = page.getViewport({scale: (W * dpr) / job.shape.w});
-    job.cv.width  = Math.round(vp.width);
-    job.cv.height = Math.round(vp.height);
-    await page.render({canvasContext: job.cv.getContext('2d', {alpha:false}), viewport: vp}).promise;
-    page.cleanup();
-    job.cv.dataset.done = "1";
-    await new Promise(r => setTimeout(r, 0));       // let the browser breathe
-  }).catch(err => console.warn("[pulp] page", job.n, "→", err.message));
-  return painter;
-}
-
-async function drawPdf(entry, W, mine){
-  const rec = await pdfDoc(entry);
-  if(mine !== gen) return 1.4;
-
-  // a long document at full retina would cost more memory than it's worth
-  const dpr = Math.min(devicePixelRatio || 1, rec.shape.length > 8 ? 1.4 : 2);
-
-  const cached = stackCache.get(entry.name + "@" + Math.round(W));
-  if(cached){ cached.forEach(cv => stack.appendChild(cv)); }
-  else{
-    const jobs = rec.shape.map((shape, i)=>{
-      const cv = document.createElement('canvas');
-      cv.width = cv.height = 1;                    // no bitmap until it's drawn
-      cv.style.aspectRatio = `${shape.w} / ${shape.h}`;   // but hold the right space
-      stack.appendChild(cv);
-      return {cv, shape, n: i + 1};
-    });
-    remember(entry.name + "@" + Math.round(W), jobs.map(j => j.cv));
-    await paint(rec, jobs[0], W, dpr, mine);        // page one before we unroll
-    jobs.slice(1).forEach(j => paint(rec, j, W, dpr, mine));   // the rest, quietly
-  }
-  return rec.shape.reduce((t, s) => t + s.h / s.w, 0);
-}
-
-/* keep the last few documents drawn; drop the oldest so phones don't choke */
-const stackCache = new Map();
-function remember(key, canvases){
-  stackCache.set(key, canvases);
-  while(stackCache.size > 3){
-    const oldest = stackCache.keys().next().value;
-    stackCache.get(oldest).forEach(cv => { cv.width = cv.height = 1; });
-    stackCache.delete(oldest);
-  }
-}
-
 const textCache = new Map();
 function decodeBase64Utf8(content){
   const bytes = Uint8Array.from(atob(content.replace(/\s/g, "")), c => c.charCodeAt(0));
@@ -915,50 +740,39 @@ async function transcriptOf(entry){
 /* fill the sheet, and report how tall it wants to be per unit of width */
 async function buildContent(entry, W, mine){
   stack.textContent = "";
-
-  // written out in full: no scan needed, and nothing to wait for but the words
-  if(entry.textUrl){
-    try{
-      const words = await transcriptOf(entry);
-      if(mine !== gen) return 1.4;
-      if(words){
-        if(document.fonts && document.fonts.load) await document.fonts.load('1em "Architects Daughter"');
-        const box = document.createElement('div');
-        box.className = "text";
-        box.textContent = words;
-        const edited = editedLabel(entry.name);
-        if(edited){
-          const stamp = document.createElement('div');
-          stamp.className = "last-edited";
-          stamp.textContent = edited;
-          box.appendChild(stamp);
-        }
-        stack.style.fontSize = textSize() + "px";
-
-        // Measure at the width it will END at. The scroll is still in flight and
-        // only a few pixels wide just now; measuring that gives a tall thin column.
-        // The probe is a real box of the final width, so the percentage padding
-        // in .text resolves against the right number too.
-        const probe = document.createElement('div');
-        probe.style.cssText = "position:absolute; left:0; top:0; visibility:hidden; width:" + W + "px";
-        probe.appendChild(box);
-        stack.appendChild(probe);
-        const tall = probe.offsetHeight;
-        stack.removeChild(probe);
-        stack.appendChild(box);
-
-        return Math.max(tall, 1) / W;                    // as tall as the words need
-      }
-    }catch(err){ console.warn("[pulp]", entry.name, "transcript →", err.message); }
-    stack.textContent = "";                              // fall back to the scan
-  }
-
-  if(entry.kind === "pdf") return await drawPdf(entry, W, mine);
-  const im = await loadImage(entry.urls);
+  let words = "";
+  try{ words = await transcriptOf(entry); }
+  catch(err){ console.warn("[pulp]", entry.name, "→", err.message); }
   if(mine !== gen) return 1.4;
-  stack.appendChild(im);
-  im.alt = entry.label || entry.name;
-  return (im.naturalHeight || 1400) / (im.naturalWidth || 1000);
+
+  // a font that refuses to load must never cost us the words
+  if(document.fonts && document.fonts.load)
+    await document.fonts.load('1em "Architects Daughter"').catch(()=>{});
+  const box = document.createElement('div');
+  box.className = "text";
+  box.textContent = words;
+  const edited = editedLabel(entry.name);
+  if(edited){
+    const stamp = document.createElement('div');
+    stamp.className = "last-edited";
+    stamp.textContent = edited;
+    box.appendChild(stamp);
+  }
+  stack.style.fontSize = textSize() + "px";
+
+  // Measure at the width it will END at. The scroll is still in flight and
+  // only a few pixels wide just now; measuring that gives a tall thin column.
+  // The probe is a real box of the final width, so the percentage padding
+  // in .text resolves against the right number too.
+  const probe = document.createElement('div');
+  probe.style.cssText = "position:absolute; left:0; top:0; visibility:hidden; width:" + W + "px";
+  probe.appendChild(box);
+  stack.appendChild(probe);
+  const tall = probe.offsetHeight;
+  stack.removeChild(probe);
+  stack.appendChild(box);
+
+  return Math.max(tall, 1) / W;                    // as tall as the words need
 }
 
 function scrollStatus(message, bad){
@@ -1003,14 +817,14 @@ async function beginScrollEdit(){
   if(!entry || !token || scrollEditing) return;
   scrollEdit.disabled = true; scrollStatus("Loading…");
   try{
-    const words = entry.textUrl ? await transcriptOf(entry) : "";
+    const words = await transcriptOf(entry);
     if(currentEntry !== entry) return;
     stack.textContent = "";
     const editor = document.createElement('textarea');
     editor.className = "scroll-editor";
     editor.spellcheck = true;
     editor.value = words;
-    editor.placeholder = "Write the transcript for this scroll…";
+    editor.placeholder = "Write this entry…";
     stack.style.fontSize = textSize() + "px";
     stack.appendChild(editor);
     setScrollEditing(true);
@@ -1019,7 +833,7 @@ async function beginScrollEdit(){
     sizeScrollEditor(editor);
     editor.addEventListener('input', ()=>sizeScrollEditor(editor));
     editor.focus();
-  }catch(err){ scrollStatus("Could not load the transcript.", true); }
+  }catch(err){ scrollStatus("Could not load the words.", true); }
   finally{ scrollEdit.disabled = false; }
 }
 async function cancelScrollEdit(){
@@ -1052,7 +866,6 @@ async function saveScrollEdit(){
     if(currentEntry === entry){
       setScrollEditing(false);
       await refreshOpenedContent(entry);
-      scrollEdit.textContent = "Edit";
       scrollStatus("Saved");
       setTimeout(()=>{ if(currentEntry === entry && !scrollEditing) scrollStatus(""); }, 2200);
     }
@@ -1089,8 +902,8 @@ function openScroll(entry, el){
   stage.classList.add('on');
   stage.setAttribute('aria-hidden','false');
 
-  // lift off straight away — a multi-page PDF takes a moment, and the scroll
-  // shouldn't sit on the shelf looking broken while it's fetched
+  // lift off straight away, rather than sitting on the shelf looking broken
+  // while the words are fetched
   void openEl.offsetWidth;
   openEl.classList.add('flying');
   openEl.style.left  = Math.round((vw - W)/2) + 'px';
@@ -1098,8 +911,8 @@ function openScroll(entry, el){
   openEl.style.width = W + 'px';
   el.classList.add('hidden');
 
-  // let it be closed again as soon as it has risen, even if a long PDF is
-  // still drawing — nobody should be trapped waiting for a scan
+  // let it be closed again as soon as it has risen — nobody should be
+  // trapped waiting on a fetch
   const risen = new Promise(res => setTimeout(()=>{ busy = false; res(); }, 560));
   const ready = buildContent(entry, W, mine).catch(err=>{
     console.warn("[pulp]", entry.name, "→", err.message);
@@ -1112,7 +925,6 @@ function openScroll(entry, el){
     openEl.style.top = Math.round(Math.max(26, (vh - (H + 56))/2)) + 'px';
     openEl.classList.add('unrolled');
     sheet.style.height = Math.round(H) + 'px';
-    scrollEdit.textContent = entry.textUrl ? "Edit" : "Add words";
     scrollTools.hidden = !token;
   });
 }
@@ -1218,7 +1030,6 @@ function prefill(){
   const d = new Date();
   document.getElementById('gDate').value =
     `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-  document.getElementById('gVision').style.display = gemKey ? 'none' : '';
 }
 
 gate.querySelector('.veil').addEventListener('click', closeGate);
@@ -1226,376 +1037,23 @@ addEventListener('keydown', e=>{ if(e.key === 'Escape' && gate.classList.contain
 
 document.getElementById('gSave').addEventListener('click', ()=>{
   const t = document.getElementById('gToken').value.trim();
-  const g = document.getElementById('gGem').value.trim();
   if(t.length < 20) return say('saySetup', "That doesn't look like a token.", true);
   try{
     localStorage.setItem(VAULT, t);
-    if(g) localStorage.setItem(GEM_KEY, g); else localStorage.removeItem(GEM_KEY);
-    localStorage.removeItem(GEM_MODEL);            // a new key may see different models
   }catch(err){ return say('saySetup', "This browser won't keep it — private window?", true); }
   token = t;
-  gemKey = g || null;
   document.getElementById('gToken').value = "";
-  document.getElementById('gGem').value = "";
   step('post'); prefill();
 });
 
 document.getElementById('gForget').addEventListener('click', ()=>{
-  try{ localStorage.removeItem(VAULT); localStorage.removeItem(GEM_KEY);
-       localStorage.removeItem(GEM_MODEL); }catch(e){}
-  token = null; gemKey = null;
+  try{ localStorage.removeItem(VAULT); }catch(e){}
+  token = null;
   step('setup'); focus('gToken');
 });
 
-document.getElementById('gGemSave').addEventListener('click', ()=>{
-  const key = document.getElementById('gGemPost').value.trim();
-  if(key.length < 20) return say('sayPost', "That doesn't look like a Google AI Studio key.", true);
-  try{
-    localStorage.setItem(GEM_KEY, key);
-    localStorage.removeItem(GEM_MODEL);
-  }catch(err){ return say('sayPost', "This browser won't keep it — private window?", true); }
-  gemKey = key;
-  document.getElementById('gGemPost').value = "";
-  document.getElementById('gVision').style.display = 'none';
-  if(fileBox.files[0]) readChosenPage();
-  else say('sayPost', "Handwriting reader ready. Choose the page.");
-});
-
-/* ══════════════════════════════════════════════════════════════
-   READING THE HANDWRITING
-   Pages go to Google's vision model once, here, at publishing time.
-   The words it returns are committed beside the scan as a .txt, so
-   every reader afterwards is just fetching a text file — no key, no
-   cost, no waiting. Your key never leaves this browser.
-   ══════════════════════════════════════════════════════════════ */
-const GEM_KEY = "pulp.gem", GEM_MODEL = "pulp.gemmodel.v3";
-const HAND_SAMPLE = "pulp.hand.sample.v1";
-let gemKey = null;
-try{ gemKey = localStorage.getItem(GEM_KEY) || null; }catch(e){}
-
-const READ_PROMPT =
-`You are transcribing pages from a handwritten personal journal, written with a fountain pen. The hand may be cursive, hurried, and difficult.
-
-Return ONLY the transcription. No preamble, no commentary, no markdown, no headings, no code fences.
-
-- Keep the writer's own line breaks and paragraph breaks.
-- Keep their spelling, punctuation, capitalisation and grammar exactly as written, mistakes included. Do not tidy anything.
-- Leave crossed-out words out, unless what replaced them is unclear.
-- Where a word is genuinely illegible, put [?] rather than guessing.
-- Ignore page numbers, margin rulings and printed letterhead.
-- With several pages, transcribe them in order, separated by a blank line.`;
-
-/* Model names come and go, so ask the key what it can actually use. */
-async function geminiModels(){
-  let cached = null;
-  try{ cached = localStorage.getItem(GEM_MODEL); }catch(e){}
-  if(cached) return JSON.parse(cached);
-
-  const r = await fetch("https://generativelanguage.googleapis.com/v1beta/models?key=" + encodeURIComponent(gemKey));
-  if(!r.ok) throw new Error("Google refused the key (" + r.status + ")");
-  const j = await r.json();
-  const usable = (j.models || [])
-    .filter(m => (m.supportedGenerationMethods || []).includes("generateContent"))
-    .map(m => String(m.name).replace(/^models\//, ""))
-    .filter(n => !/embedding|aqa|imagen|veo|tts|image-generation|gemma/i.test(n));
-  if(!usable.length) throw new Error("that key has no usable model on it");
-
-  const score = n =>
-      (/pro/i.test(n)   ? 140 : 0)              // accuracy matters more than latency here
-    + (/flash/i.test(n) ?  80 : 0)
-    - (/lite|preview|exp|thinking|latest/i.test(n) ? 25 : 0)
-    + (parseFloat((n.match(/(\d+\.\d+)/) || [0, "0"])[1]) || 0) * 10;
-  usable.sort((a, b) => score(b) - score(a));
-  // Keep the accurate model first, but always retain Flash alternatives. Some API
-  // keys can list Pro models they have no quota or regional access to.
-  const pro = usable.find(n => /pro/i.test(n));
-  const flash = usable.filter(n => /flash/i.test(n) && !/lite/i.test(n)).slice(0, 2);
-  const shortlist = [...new Set([pro, ...flash, ...usable].filter(Boolean))].slice(0, 6);
-  try{ localStorage.setItem(GEM_MODEL, JSON.stringify(shortlist)); }catch(e){}
-  return shortlist;
-}
-
-function loadLocalImage(file){
-  return new Promise((res, rej)=>{
-    const url = URL.createObjectURL(file);
-    const im = new Image();
-    im.onload  = ()=>{ URL.revokeObjectURL(url); res(im); };
-    im.onerror = ()=>{ URL.revokeObjectURL(url); rej(new Error("this browser can't open that image — HEIC?")); };
-    im.src = url;
-  });
-}
-
-const MAX_READ_PAGES = 15;
-
-/* Turn whatever was chosen into page-sized canvases. */
-async function pageCanvases(file, note){
-  // Handwriting recognition benefits greatly from preserving small pen strokes.
-  // 2600px is still modest enough for phones and multi-page API requests.
-  const LONG = 2600;
-  const out = [];
-
-  if(file.type === "application/pdf" || /\.pdf$/i.test(file.name)){
-    const lib = await ensurePdfLib();
-    const doc = await lib.getDocument({data: new Uint8Array(await file.arrayBuffer())}).promise;
-    const n = Math.min(doc.numPages, MAX_READ_PAGES);
-    for(let i = 1; i <= n; i++){
-      note && note(`Preparing page ${i} of ${n}…`);
-      const page = await doc.getPage(i);
-      const one  = page.getViewport({scale: 1});
-      const vp   = page.getViewport({scale: Math.min(LONG / one.width, 3)});
-      const cv   = document.createElement('canvas');
-      cv.width = Math.round(vp.width); cv.height = Math.round(vp.height);
-      const ctx = cv.getContext('2d');
-      ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, cv.width, cv.height);
-      await page.render({canvasContext: ctx, viewport: vp}).promise;
-      out.push(cv);
-      page.cleanup();
-    }
-    return {pages: out, total: doc.numPages, read: n};
-  }
-
-  const im = await loadLocalImage(file);
-  const scale = Math.min(1, LONG / Math.max(im.naturalWidth, im.naturalHeight));
-  const cv = document.createElement('canvas');
-  cv.width  = Math.max(1, Math.round(im.naturalWidth  * scale));
-  cv.height = Math.max(1, Math.round(im.naturalHeight * scale));
-  const ctx = cv.getContext('2d');
-  ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, cv.width, cv.height);
-  ctx.drawImage(im, 0, 0, cv.width, cv.height);
-  return {pages: [cv], total: 1, read: 1};
-}
-
-const asJpeg = (cv, quality = 0.94) => cv.toDataURL("image/jpeg", quality).split(",")[1];
-
-function handwritingSample(){
-  try{
-    const sample = JSON.parse(localStorage.getItem(HAND_SAMPLE) || "null");
-    return sample && sample.image && sample.text ? sample : null;
-  }catch(e){ return null; }
-}
-
-/* Keep one corrected page as a few-shot example. This is deliberately small and
-   local: it teaches the reader recurring letter shapes without uploading a journal
-   archive or relying on a server-side profile. */
-function rememberHandwritingSample(page, text){
-  if(!page || !text.trim()) return;
-  const limit = 1200;
-  const scale = Math.min(1, limit / Math.max(page.width, page.height));
-  const cv = document.createElement('canvas');
-  cv.width = Math.max(1, Math.round(page.width * scale));
-  cv.height = Math.max(1, Math.round(page.height * scale));
-  const ctx = cv.getContext('2d');
-  ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, cv.width, cv.height);
-  ctx.drawImage(page, 0, 0, cv.width, cv.height);
-  try{
-    localStorage.setItem(HAND_SAMPLE, JSON.stringify({
-      image: asJpeg(cv, 0.78), text: text.trim().slice(0, 12000)
-    }));
-  }catch(e){ console.warn("[pulp] could not remember handwriting sample", e); }
-}
-
-/* ── ENGINE ONE: on this device, no key, nothing to be overloaded ─────────
-   Tesseract is not clever about cursive, so give it the cleanest possible
-   picture: bigger, grey, and thresholded against a local average rather than
-   one number for the whole page — which is what copes with a shadow across
-   the paper or ink that fades along a line.                              */
-function binarize(src){
-  const grow = Math.min(2.5, Math.max(1, 2200 / Math.max(src.width, src.height)));
-  const w = Math.round(src.width * grow), h = Math.round(src.height * grow);
-  const cv = document.createElement('canvas');
-  cv.width = w; cv.height = h;
-  const ctx = cv.getContext('2d', {willReadFrequently: true});
-  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = "high";
-  ctx.drawImage(src, 0, 0, w, h);
-
-  const im = ctx.getImageData(0, 0, w, h), d = im.data;
-  const g = new Float32Array(w * h);
-  for(let i = 0, p = 0; p < g.length; i += 4, p++)
-    g[p] = 0.299 * d[i] + 0.587 * d[i+1] + 0.114 * d[i+2];
-
-  // running sums, so a local average costs four lookups however wide the window
-  const I = new Float64Array((w + 1) * (h + 1));
-  for(let y = 0; y < h; y++){
-    let row = 0;
-    for(let x = 0; x < w; x++){
-      row += g[y * w + x];
-      I[(y + 1) * (w + 1) + x + 1] = I[y * (w + 1) + x + 1] + row;
-    }
-  }
-  const r = Math.max(10, Math.round(Math.min(w, h) / 26));
-  for(let y = 0; y < h; y++){
-    const y0 = Math.max(0, y - r), y1 = Math.min(h - 1, y + r);
-    for(let x = 0; x < w; x++){
-      const x0 = Math.max(0, x - r), x1 = Math.min(w - 1, x + r);
-      const area = (x1 - x0 + 1) * (y1 - y0 + 1);
-      const sum = I[(y1+1)*(w+1) + x1+1] - I[y0*(w+1) + x1+1]
-                - I[(y1+1)*(w+1) + x0]   + I[y0*(w+1) + x0];
-      const p = y * w + x;
-      const v = g[p] < (sum / area) * 0.90 ? 0 : 255;      // ink, or paper
-      d[p*4] = d[p*4+1] = d[p*4+2] = v; d[p*4+3] = 255;
-    }
-  }
-  ctx.putImageData(im, 0, 0);
-  return cv;
-}
-
-let tessLib = null;
-let localReadConfidence = 0;
-function ensureTesseract(){
-  if(tessLib) return Promise.resolve(tessLib);
-  return new Promise((resolve, reject)=>{
-    const el = document.createElement('script');
-    el.src = "assets/tesseract/tesseract.min.js";
-    el.onload  = ()=>{ tessLib = window.Tesseract; resolve(tessLib); };
-    el.onerror = ()=> reject(new Error("the on-device reader would not load"));
-    document.head.appendChild(el);
-  });
-}
-
-async function readHere(pages, note){
-  const T = await ensureTesseract();
-  note && note("Warming up the reader on this device…");
-  const worker = await T.createWorker("eng", 1, {
-    workerPath: "assets/tesseract/worker.min.js",
-    corePath:   "assets/tesseract/",
-    langPath:   "assets/tesseract/",
-    gzip: true
-  });
-  try{
-    await worker.setParameters({
-      tessedit_pageseg_mode: "6",          // one block of text, which a page is
-      preserve_interword_spaces: "1"
-    });
-    const chunks = [];
-    const confidences = [];
-    for(let i = 0; i < pages.length; i++){
-      note && note(`Reading page ${i + 1} of ${pages.length} here…`);
-      const {data} = await worker.recognize(binarize(pages[i]));
-      chunks.push((data.text || "").replace(/[ \t]+\n/g, "\n").trim());
-      if(Number.isFinite(data.confidence)) confidences.push(data.confidence);
-    }
-    localReadConfidence = confidences.length
-      ? confidences.reduce((a, b) => a + b, 0) / confidences.length : 0;
-    return chunks.filter(Boolean).join("\n\n");
-  } finally { await worker.terminate(); }
-}
-
-/* ── ENGINE TWO: Gemini, when it is willing ───────────────────────────── */
-async function callGemini(model, shots){
-  const parts = [{text: READ_PROMPT}];
-  const sample = handwritingSample();
-  if(sample){
-    parts.push({text: "Here is one previously corrected example of this same writer's handwriting. Use it only to learn recurring letter shapes and word spacing; do not include its words in the new transcription."});
-    parts.push({inline_data: {mime_type: "image/jpeg", data: sample.image}});
-    parts.push({text: "Correct transcription of the example:\n" + sample.text + "\n\nNow transcribe only the new page(s) below:"});
-  }
-  parts.push(...shots.map(b64 => ({inline_data: {mime_type: "image/jpeg", data: b64}})));
-  const r = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=`
-      + encodeURIComponent(gemKey),
-    { method: "POST", headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({ contents: [{parts}],
-                             generationConfig: {temperature: 0, maxOutputTokens: 8192} }) });
-  if(!r.ok){
-    let msg = "Google said " + r.status;
-    try{ const e = await r.json(); if(e.error && e.error.message) msg = e.error.message; }catch(e){}
-    if(r.status === 404){ try{ localStorage.removeItem(GEM_MODEL); }catch(e){} }
-    const err = new Error(msg);
-    err.status = r.status;
-    err.busy = (r.status === 503 || r.status === 429 || /overload|unavailable|exhaust/i.test(msg));
-    err.badKey = r.status === 401 || /api key (?:not valid|invalid)|invalid api key|key was reported/i.test(msg);
-    throw err;
-  }
-  const j = await r.json();
-  const got = (((j.candidates || [])[0] || {}).content || {}).parts || [];
-  return got.map(x => x.text || "").join("").trim();
-}
-
-/* Overload is per-model and usually passes. Wait a moment, then try the next
-   model on the list rather than giving up on the whole idea. */
-async function readAtGoogle(pages, note){
-  const models = await geminiModels();
-  const shots = pages.map(asJpeg);
-  let last = null;
-  for(let go = 0; go < models.length; go++){
-    const model = models[go];
-    try{
-      note && note(go ? `Trying ${model}…` : "Reading your handwriting…");
-      const words = await callGemini(model, shots);
-      if(words) return words;
-      last = new Error("nothing legible came back");
-    }catch(err){
-      last = err;
-      if(err.badKey) throw err;
-      // Access, quota, and retirement differ per model. Move on instead of throwing
-      // the whole vision attempt away because one listed model rejected this key.
-      if(err.busy){
-        const wait = Math.min(4000, 700 * Math.pow(1.7, go));
-        note && note(`${model} is busy — trying another reader in ${Math.round(wait/100)/10}s…`);
-        await new Promise(r => setTimeout(r, wait));
-      }else{
-        note && note(`${model} wasn't available — trying another reader…`);
-      }
-    }
-  }
-  throw last || new Error("Google stayed busy");
-}
-
-/* ── the read button, and reading whatever was just chosen ── */
-const fileBox = document.getElementById('gFile');
-const textBox = document.getElementById('gText');
-let lastReadPages = [];
-
-async function readChosenPage(){
-  const file = fileBox.files[0];
-  if(!file) return say('sayPost', "Choose the page first.", true);
-
-  textBox.value = "";
-  const note = m => say('sayPost', m);
-  note("Preparing the page…");
-  try{
-    const {pages, total, read} = await pageCanvases(file, note);
-    lastReadPages = pages;
-    const short = read < total ? ` Only the first ${read} of ${total} pages.` : "";
-
-    let words = "", how = "";
-    if(gemKey){
-      try{
-        words = await readAtGoogle(pages, note);
-        how = "Google";
-      }catch(err){
-        note("Google wouldn't play — reading it here instead…");
-        console.warn("[pulp] google →", err.message);
-      }
-    }
-    if(!words){
-      words = await readHere(pages, note);          // never busy, never rationed
-      how = "this device";
-    }
-
-    textBox.value = words;
-    const weakLocal = how === "this device" && localReadConfidence < 55;
-    say('sayPost', words
-      ? weakLocal
-        ? `The on-device reader could not read this cursive reliably (${Math.round(localReadConfidence)}% confidence). Add a Google AI Studio key for handwriting; the text below is only its rough attempt.${short}`
-        : `Read by ${how}.${short} Check it over — it will need a hand.`
-      : "Nothing legible came back. Publish the scan, or write it out yourself.", !words || weakLocal);
-  }catch(err){
-    say('sayPost', String(err.message || err), true);
-  }
-}
-fileBox.addEventListener('change', ()=>{ if(fileBox.files[0]) readChosenPage(); });
-document.getElementById('gRead').addEventListener('click', readChosenPage);
-
 /* ── publishing ── */
-function fileToBase64(file){
-  return new Promise((res, rej)=>{
-    const fr = new FileReader();
-    fr.onload  = ()=> res(String(fr.result).split(',')[1]);
-    fr.onerror = ()=> rej(new Error("could not read that file"));
-    fr.readAsDataURL(file);
-  });
-}
+const textBox = document.getElementById('gText');
 const textToBase64 = t => btoa(String.fromCharCode(...new TextEncoder().encode(t)));
 
 async function putFile(path, b64){
@@ -1613,7 +1071,7 @@ async function putFile(path, b64){
 
 const githubPath = path => path.split('/').map(encodeURIComponent).join('/');
 async function editTranscript(entry, words){
-  const path = `${SOURCE.dir}/${entry.name}.txt`;
+  const path = `${SOURCE.dir}/${entry.name}`;
   const url = `https://api.github.com/repos/${SOURCE.user}/${SOURCE.repo}/contents/${githubPath(path)}`;
   const headers = {Authorization:"Bearer " + token, Accept:"application/vnd.github+json"};
   const old = await fetch(url + "?ref=" + encodeURIComponent(SOURCE.branch), {headers, cache:"no-store"});
@@ -1639,37 +1097,29 @@ async function editTranscript(entry, words){
 }
 
 document.getElementById('gPost').addEventListener('click', async ()=>{
-  const btn  = document.getElementById('gPost');
-  const file = fileBox.files[0];
-  const date = document.getElementById('gDate').value;
-  const note = document.getElementById('gNote').value.trim();
-  if(!file) return say('sayPost', "Choose the page first.", true);
+  const btn   = document.getElementById('gPost');
+  const words = textBox.value.trim();
+  const date  = document.getElementById('gDate').value;
+  const note  = document.getElementById('gNote').value.trim();
+  if(!words) return say('sayPost', "Write something first.", true);
   if(!/^\d{4}-\d{2}-\d{2}$/.test(date)) return say('sayPost', "Needs a date.", true);
 
-  const ext  = ((file.name.match(/\.[A-Za-z0-9]+$/) || [".jpg"])[0]).toLowerCase();
   const slug = note ? "-" + note.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"") : "";
 
   btn.disabled = true;
   say('sayPost', "Sending…");
   try{
-    const b64 = await fileToBase64(file);
+    const b64 = textToBase64(words);
     let path = null;
     for(let n = 0; n < 9 && !path; n++){
       const tail = n ? `-${n+1}` : "";
-      const p = `${SOURCE.dir}/${date}${slug}${tail}${ext}`;
+      const p = `${SOURCE.dir}/${date}${slug}${tail}.txt`;
       if(await putFile(p, b64)) path = p;
     }
     if(!path) throw new Error("nine entries already share that name");
 
-    const words = textBox.value.trim();
-    if(words){
-      say('sayPost', "Sending the words…");
-      await putFile(path + ".txt", textToBase64(words));   // same name, plus .txt
-      if(lastReadPages.length === 1) rememberHandwritingSample(lastReadPages[0], words);
-    }
-
-    say('sayPost', words ? "On the shelf, in your own words." : "On the shelf.");
-    fileBox.value = ""; textBox.value = ""; lastReadPages = [];
+    say('sayPost', "On the shelf.");
+    textBox.value = "";
     document.getElementById('gNote').value = "";
     setTimeout(async ()=>{ closeGate(); render(await loadEntries()); }, 1000);
   }catch(err){

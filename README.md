@@ -1,13 +1,11 @@
 # A Pulp Of Man
 
-A shelf of scrolls at **pulpofman.com**. Each scroll is one handwritten entry. Tap one
-and it lifts off the shelf and unrolls. Anything dated today wears a small blue
-feather.
+A shelf of scrolls at **pulpofman.com**. Each scroll is one entry. Tap one and it lifts
+off the shelf and unrolls. Anything dated today wears a small blue feather.
 
-Entries are photographs or PDFs sitting in the **`entries/` folder of this repo** —
-`AidenAfshar/PulpOfMan`, branch `master`. When you publish one, the handwriting is read
-into text and that text is what the scroll shows, set in a handwriting face. The scan is
-kept alongside it.
+Entries are plain text files sitting in the **`entries/` folder of this repo** —
+`AidenAfshar/PulpOfMan`, branch `master`. One file, named `YYYY-MM-DD-anything.txt`, is
+one scroll. The words in it are what the scroll shows, set in a handwriting face.
 
 To publish, you don't go anywhere: **tap the title five times** and a door opens.
 
@@ -17,8 +15,8 @@ To publish, you don't go anywhere: **tap the title five times** and a door opens
 
 Tap **A PULP OF MAN** five times quickly. A panel appears on parchment. The first time,
 it asks for your GitHub token. After that it goes **straight to the form** — no
-password, ever again on that browser. Pick a file, confirm the date, hit Publish. The
-scroll appears on the shelf a moment later.
+password, ever again on that browser. Write the entry, confirm the date, hit Publish.
+The scroll appears on the shelf a moment later.
 
 Nothing about this is visible to anyone else. The public site has no menu, no login
 link, no hint that the panel exists — five taps on a title is not something a visitor
@@ -71,114 +69,38 @@ Tap the title five times, and then:
 
 | field | what it does |
 |---|---|
-| The page | Choose a photograph or a PDF. On a phone this offers your camera roll and Files. Choosing it starts the reading straight away. |
 | Dated | Defaults to today. This is the date inked down the scroll and what sorts the shelf. |
-| A word | Optional. `morning` becomes `2026-08-17-morning.jpg`. Spaces and punctuation are tidied automatically. |
-| Transcript | What the model read, presented on a miniature unrolled scroll with the same paper, handwriting face, size, spacing, and padding as the published view. **Fix it here before publishing** — this is the version people see. *read it again* re-runs it. |
+| A word | Optional. `morning` becomes `2026-08-17-morning.txt`. Spaces and punctuation are tidied automatically. |
+| The entry | The words themselves, on a miniature unrolled scroll with the same paper, handwriting face, size, spacing and padding as the published view. What you see here is what people see. |
 
 Publish two things on the same date and the second quietly becomes `-2`. Nothing
 overwrites anything.
 
+There is no upload, no file picker, no reading step and no second service to depend on.
+The panel writes one text file and that is the entry.
+
 ### Editing an old post
 
 On a browser that remembers the GitHub token, open any scroll normally. An **Edit**
-button appears directly on the opened scroll; scan-only posts say **Add words** instead.
-The scroll itself becomes the writing surface, with Save and Cancel controls at its top.
-The original photograph or PDF is never replaced; only its companion `.txt` file
-changes. Saving creates a normal Git commit, so simultaneous changes are rejected
-instead of silently overwritten. Visitors and browsers without the saved token never
-see the editing controls.
+button appears directly on the opened scroll. The scroll itself becomes the writing
+surface, with Save and Cancel controls at its top. Saving creates a normal Git commit,
+so simultaneous changes are rejected instead of silently overwritten. Visitors and
+browsers without the saved token never see the editing controls.
 
 The latest Git commit timestamp appears as **Last edited** at the bottom of that scroll.
-GitHub-backed transcripts are read from the immutable Git blob for their exact file
-SHA, so raw-file caches cannot resurrect an older version after reloading or opening
-the site on another device.
-
-### Reading the handwriting
-
-Two engines, tried in that order, so a busy server can never stop you publishing.
-
-**1. Google, if you've given it a key.** This is required for flowing cursive and is
-the best reader by a distance. The reader
-prefers the more accurate Pro models, preserves more detail from the page, and learns
-from the last single-page transcript you corrected and published. That one reference
-page and its correction stay in this browser and are sent with the next page only as
-an example of your letter shapes. When Google comes
-back *overloaded* — which it does, often — the site now waits and tries again, and
-switches to a different model each time rather than hammering the same busy one. Four
-attempts across about ten seconds.
-
-If this browser was set up before the handwriting key was added, the posting form shows
-an **Enable handwriting reader** field. Adding the key there does not disturb the saved
-GitHub publishing token and immediately rereads a page that is already selected.
-
-**2. This device, always.** If Google is still refusing, or you never gave a key, the
-page reads the handwriting itself with Tesseract, which lives in `assets/tesseract/`.
-No key, no network, no queue, nothing that can be overloaded or rationed. About eight
-seconds a page.
-
-The status line tells you which one read it. A low-confidence on-device result is
-explicitly marked as a rough failed attempt rather than presented as a successful read.
-
-**Be honest with yourself about the second one.** Tesseract was built for print, not
-cursive fountain pen. To give it the best chance the page is enlarged, turned grey, and
-thresholded against a *local* average rather than one number for the whole sheet —
-which is what copes with a shadow across the paper or ink that fades along a line. It
-will still make a mess of a flowing hand. Treat it as a first draft that saves you the
-typing, not as a transcription.
-
-Either way **you correct the text before publishing** — that box is the point, and it's
-the version people read.
-
-Other things worth knowing:
-
-- **The model is asked to be faithful, not tidy.** It keeps your line breaks, spelling,
-  punctuation and mistakes, drops crossings-out, and writes `[?]` where a word defeats
-  it rather than inventing one.
-- **Up to 15 pages** are read in one go. A longer PDF publishes fine; the panel says so.
-- **Cost.** Google's free tier would likely cover a daily journal. On this device it's
-  free forever.
-- **The model name isn't hardcoded.** On first use the site asks your key which models
-  it can run, keeps the best four, and works down the list when one is busy.
-
-Your Google key is stored in this browser next to the GitHub token, and — like it — is
-never written into the site.
-
-#### Getting the key
-
-**aistudio.google.com** → **Get API key** → **Create API key**. Paste it into the second
-field of the setup panel. Skip it entirely if you'd rather not: everything still works.
-
-### PDFs
-
-Once an entry has a transcript, the scroll shows the words and never touches the PDF —
-which makes it far quicker to open. The pages are still there in the repo.
-
-For an entry with **no** transcript — anything published before this, or where you
-cleared the box — the scan is shown instead: **every page drawn**, stacked end to end,
-with a faint fold where one page meets the next.
-
-Page one is drawn before the scroll unrolls, and the rest are drawn quietly behind it
-one at a time, so a long entry opens as fast as a short one and scrolling never
-stutters. Opening the same entry again is instant — the last three documents you
-looked at stay drawn. A PDF also begins downloading the moment your finger or cursor
-lands on its scroll, before you've even tapped.
-
-Keep them under about 25 MB.
-
-### HEIC
-
-Your iPhone's default format is `.heic`, which Safari shows but Chrome and Android do
-not. Either set **Settings → Camera → Formats → Most Compatible** so the phone shoots
-JPEG, or share the photo out of the Photos app rather than picking the original file —
-that converts it on the way.
+Entries are read from the immutable Git blob for their exact file SHA, so raw-file
+caches cannot resurrect an older version after reloading or opening the site on another
+device.
 
 ### The naming rule, if you ever add files by hand
 
-**The filename must carry `YYYY-MM-DD`.** The panel does this for you, but if you drag
-files into `entries/` on GitHub or on your Mac, that's the rule. A file without a date
-still appears — bare, at the very end of the shelf. Nothing disappears silently; an
-unlabelled scroll is a filename asking to be fixed.
+**The filename must carry `YYYY-MM-DD` and end in `.txt`.** The panel does this for you,
+but if you drag files into `entries/` on GitHub or on your Mac, that's the rule. A file
+without a date still appears — bare, at the very end of the shelf. Nothing disappears
+silently; an unlabelled scroll is a filename asking to be fixed.
+
+Because an entry is a text file, writing one by hand is a perfectly good way to post:
+add `entries/2026-09-01-whatever.txt` in the GitHub web editor and it is on the shelf.
 
 ---
 
@@ -232,19 +154,14 @@ Anything that failed is logged there, prefixed `[pulp]`.
 |---|---|
 | Shelf empty, console says `fromGitHub → github 404` | Wrong `user`/`repo`/`branch` in `SOURCE` at the top of `index.html`, or there's no `entries/` folder yet. |
 | Shelf empty, console says `github 403` | You've made more than 60 anonymous requests in an hour from this network. Unlock the panel — once you do, the site uses your token and the ceiling rises to 5,000. |
+| A file is in `entries/` but no scroll appears | It doesn't end in `.txt`. Only text files become scrolls now. |
 | Five taps do nothing | Try again a little faster — all five need to land inside two and a half seconds. |
 | It asks for the token again | The browser's storage was cleared, or you're in a private window. Paste it in again. |
 | Publish says `Resource not accessible` | The token lacks **Contents: Read and write**, or wasn't scoped to `PulpOfMan`. |
 | Publish says `Bad credentials` | The token expired or was pasted with a stray space. Tap *forget this device* and set it up again. |
-| Scrolls appear but pages are blank | The repo is private. Make it public. |
-| PDFs hang, photos are fine | `assets/pdfjs/` didn't get uploaded — 1.5 MB, easy to miss. |
-| Reading always says "read by this device" | Google is refusing every time. Check the key, or just live with it — the local reader needs no one's permission. |
-| Reading says `the on-device reader would not load` | `assets/tesseract/` didn't get uploaded. It's 15 MB across eight files. |
+| Scrolls appear but are blank | The repo is private. Make it public. |
 | Everything is in the wrong font | `assets/fonts/` didn't get uploaded. |
-| Reading says `API key not valid` | The Google key was mistyped, or the Generative Language API isn't enabled on that project. Make a fresh one at aistudio.google.com. |
-| Reading says `quota` or `429` | You've gone past the free tier for now. Wait, or publish without the transcript and add it later by hand. |
-| A transcript is wrong | Edit `entries/<name>.txt` directly on GitHub. It's a plain text file; the scroll follows it. |
-| You want the scan back for one entry | Delete its `.txt`. The scroll reverts to showing the pages. |
+| An entry is wrong | Edit it on the scroll itself, or edit `entries/<name>.txt` directly on GitHub. It's a plain text file; the scroll follows it. |
 
 ---
 
@@ -272,8 +189,8 @@ pip install numpy pillow
 python3 tools/render_assets.py
 ```
 
-Change `seed=7` in `cobblestone()` for a different wall. `make_samples.py` regenerates
-placeholder handwriting; `social.py` re-renders the share card and home-screen icons.
+Change `seed=7` in `cobblestone()` for a different wall. `social.py` re-renders the
+share card and home-screen icons.
 
 Layout knobs are in the `:root` block at the top of `index.html`:
 
@@ -285,8 +202,8 @@ Layout knobs are in the `:root` block at the top of `index.html`:
 | `--ink` | the colour of the date written on each roll |
 
 There are exactly as many shelves as it takes to hold the scrolls — one more appears
-when a row fills up. Two more knobs sit in the script: `textSize()` sets how big
-transcribed writing is (smaller on a desktop so more fits, larger on a phone), and the
+when a row fills up. Two more knobs sit in the script: `textSize()` sets how big the
+writing is (smaller on a desktop so more fits, larger on a phone), and the
 `Math.min(760, vw * 0.92)` in `openScroll` sets how wide a scroll opens.
 
 ---
@@ -297,11 +214,10 @@ transcribed writing is (smaller on a desktop so more fits, larger on a phone), a
 index.html            the whole site, including the hidden door
 CNAME                 pulpofman.com
 site.webmanifest      name and icons for Add to Home Screen
-entries/              your entries, and a .txt of each one's words — the panel writes both
+entries/              your entries: one .txt per scroll
+archive-scans/        the original PDFs from before the site went text-only
 assets/               rendered wall, shelf, scrolls, rolls, paper, icons, share card
-assets/pdfjs/         Mozilla's pdf.js, for drawing PDF pages (Apache 2.0)
 assets/fonts/         Cormorant Garamond, Caveat, Architects Daughter (OFL)
-assets/tesseract/     the on-device reader, for when Google is busy (Apache 2.0)
 entries.json          last-ditch fallback listing; unused in normal operation
 tools/                the Python that renders assets/, plus the old Drive relay
 ```
